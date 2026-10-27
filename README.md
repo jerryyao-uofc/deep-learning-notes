@@ -1,6 +1,8 @@
 # Deep Learning Notes
 
-Study notes from CSC2516 (Neural Networks and Deep Learning), written to be readable on their own.
+Ground-up study notes on neural networks and deep learning, with extra detail, intuition, and simple worked examples. The aim is a clearer path for readers who want the ideas from first principles without jumping straight into dense lecture form.
+
+These notes borrow heavily from the original [CSC2516 course lecture notes](https://r-three.github.io/deep-learning-lecture-notes/) (Neural Networks and Deep Learning).
 
 **Website:** [https://jerryyao-uofc.github.io/deep-learning-notes/](https://jerryyao-uofc.github.io/deep-learning-notes/)
 

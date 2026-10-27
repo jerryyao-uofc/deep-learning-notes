@@ -10,23 +10,28 @@
 \usetikzlibrary{arrows.meta,positioning,fit,calc,shapes.geometric}
 
 \title{Lecture~7 Study Notes:\\Attention and Self-Attention}
-\author{CSC2516 --- Neural Networks and Deep Learning\\
-\small Synthesized from course lectures with worked numerical examples}
+\author{Deep Learning Notes\\
+\small Ground-up intuitions and worked examples\\[0.35em]
+\small Formation borrows heavily from the
+\href{https://r-three.github.io/deep-learning-lecture-notes/}{CSC2516 course lecture notes}}
 \date{}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-These notes develop \textbf{attention} from first principles: as an
-associative memory, as a soft one-nearest-neighbor classifier, and as the
-mechanism that fixes the information bottleneck in sequence-to-sequence
-models. They then specialize to \textbf{self-attention}---the core of the
-transformer---including path length, a fully worked numerical toy example,
-position encodings, and multi-headed attention. A final section shows
-\textbf{attention pooling} inside a small end-to-end network that maps a
-variable-length sequence to a scalar prediction. The notes are written as
-standalone study material others can reference.
+These notes develop \textbf{attention} from first principles---with extra
+detail, intuition, and simple numerical examples---so the ideas are easier
+to follow from the ground up. Attention is introduced as an associative
+memory, as a soft one-nearest-neighbor classifier, and as the mechanism that
+fixes the information bottleneck in sequence-to-sequence models. The notes
+then specialize to \textbf{self-attention} (the core of the transformer),
+including path length, a fully worked toy example, position encodings, and
+multi-headed attention. A final section shows \textbf{attention pooling}
+inside a small end-to-end network that maps a variable-length sequence to a
+scalar prediction. Content formation borrows heavily from the original
+\href{https://r-three.github.io/deep-learning-lecture-notes/}{CSC2516 course
+lecture notes}.
 \end{abstract}
 
 \tableofcontents
