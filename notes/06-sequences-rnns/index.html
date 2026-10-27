@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lecture 6 Study Notes: Sequences, Recurrent Neural Networks, and Sequence-to-Sequence Learning · Deep Learning Notes</title>
+  <meta name="description" content="Ground-up study notes on sequences, recurrent neural networks, and sequence-to-sequence learning, with intuition and simple worked examples." />
+  <script>
+    MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  <style>
+
+:root {
+  --bg: #f7f4ef;
+  --ink: #1c1b19;
+  --muted: #5c574f;
+  --line: #d9d2c5;
+  --card: #fffdf9;
+  --accent: #0f4c5c;
+  --accent-soft: #e7f0f2;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at top left, #efe8db 0%, transparent 42%),
+    linear-gradient(180deg, var(--bg), #efe9df);
+  line-height: 1.6;
+}
+a { color: var(--accent); }
+.site-shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: rgba(255,253,249,0.92);
+  padding: 1.5rem 1.1rem;
+  position: sticky; top: 0; height: 100vh; overflow: auto;
+}
+.brand {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 0.35rem;
+}
+.sidebar h1 {
+  font-size: 1.15rem; margin: 0 0 0.75rem; font-weight: 600; line-height: 1.25;
+}
+.sidebar p { font-size: 0.92rem; color: var(--muted); margin: 0 0 1.25rem; }
+.nav-label {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 0.5rem;
+}
+.note-list { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+.note-list li { margin: 0 0 0.35rem; }
+.note-list a, .note-list span {
+  display: block; text-decoration: none; color: var(--ink);
+  border: 1px solid transparent; border-radius: 10px; padding: 0.55rem 0.65rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.9rem;
+}
+.note-list a:hover { background: var(--accent-soft); }
+.note-list a.active { background: var(--accent-soft); border-color: #b7d0d6; }
+.note-list .upcoming { color: var(--muted); opacity: 0.85; }
+.note-list small { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 0.15rem; }
+.credit { font-size: 0.8rem; color: var(--muted); }
+.content { padding: 1.75rem 1.5rem 3rem; max-width: 52rem; }
+.topbar {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+  margin-bottom: 1.25rem;
+}
+.btn {
+  display: inline-block; text-decoration: none; border: 1px solid var(--ink);
+  background: var(--ink); color: #fff !important; padding: 0.45rem 0.85rem;
+  border-radius: 999px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem;
+}
+.btn.secondary { background: transparent; color: var(--ink) !important; }
+.article h1.title { font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.2; margin: 0 0 0.5rem; }
+.article .author { color: var(--muted); margin: 0 0 1.25rem; font-size: 0.95rem; }
+.article h1, .article h2, .article h3 { line-height: 1.25; }
+.article h2 { margin-top: 2rem; border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; }
+.article table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.95rem; }
+.article th, .article td { border: 1px solid var(--line); padding: 0.4rem 0.55rem; vertical-align: top; }
+.article pre, .source-panel pre {
+  background: #1e1e1e; color: #f5f5f5; padding: 1rem; border-radius: 10px;
+  overflow: auto; font-size: 0.78rem; line-height: 1.45;
+}
+.article code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+.source-panel {
+  margin-top: 2.5rem; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--card); overflow: hidden;
+}
+.source-panel summary {
+  cursor: pointer; padding: 0.9rem 1rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 600;
+  background: #f3efe7;
+}
+.source-panel .inner { padding: 0 1rem 1rem; }
+#TOC { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0.85rem 1rem; margin: 1rem 0 1.5rem; }
+#TOC ul { padding-left: 1.2rem; }
+@media (max-width: 900px) {
+  .site-shell { grid-template-columns: 1fr; }
+  .sidebar { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+}
+
+  </style>
+</head>
+<body>
+  <div class="site-shell">
+    
+<aside class="sidebar">
+  <p class="brand">Deep Learning Notes</p>
+  <h1>Study notes showcase</h1>
+  <p>Extra detail, intuition, and simple examples — written to be easier to follow from the ground up.</p>
+  <p class="nav-label">Notes</p>
+  <ul class="note-list">
+    <li>
+      <a href="../07-attention/index.html">07 · Attention &amp; Self-Attention
+        <small>Published</small>
+      </a>
+    </li>
+    <li><span class="upcoming">08 · Transformers <small>Upcoming</small></span></li>
+    <li>
+      <a class="active" href="./index.html">06 · Sequences &amp; RNNs
+        <small>Published</small>
+      </a>
+    </li>
+    <li><span class="upcoming">05 · CNNs &amp; Residuals <small>Upcoming</small></span></li>
+    <li><span class="upcoming">04 · Gradient Methods <small>Upcoming</small></span></li>
+  </ul>
+  <p class="credit">
+    Formation of these notes borrows heavily from the
+    <a href="https://r-three.github.io/deep-learning-lecture-notes/">original course website (CSC2516)</a>.
+  </p>
+  <p class="credit" style="margin-top:0.75rem">
+    <a href="../../index.html">← All notes home</a>
+  </p>
+</aside>
+
+    <main class="content">
+      <div class="topbar">
+        <a class="btn secondary" href="../../index.html">Notes home</a>
+        <a class="btn secondary" href="./lecture-06-sequences-rnns.tex">Download .tex</a>
+        <a class="btn secondary" href="https://github.com/jerryyao-uofc/deep-learning-notes">GitHub</a>
+      </div>
+      <article class="article">
+<header id="title-block-header">
+<h1 class="title">Lecture 6 Study Notes:<br />
+Sequences, Recurrent Neural Networks,<br />
+and Sequence-to-Sequence Learning</h1>
+<p class="author">Deep Learning Notes<br />
+Ground-up intuitions and worked examples<br />
+Formation borrows heavily from the <a
+href="https://r-three.github.io/deep-learning-lecture-notes/">original
+course website (CSC2516)</a></p>
+<div class="abstract">
+<div class="abstract-title">Abstract</div>
+<p>These notes develop <strong>sequences, recurrent networks, and
+sequence-to-sequence models</strong> from first principles, with the
+questions, intuitions, and metaphors that came up while studying the
+lecture. A sequence factors by the chain rule into next-element
+predictions. Storing a separate distribution for every prefix is a giant
+lookup table; a recurrent net replaces that table by one shared set of
+weights and a hidden state that stands in for the prefix. Words enter
+the net as columns of a learned <strong>embedding matrix</strong>.
+Backpropagation through time shows why those shared weights explode or
+vanish. The <strong>LSTM</strong> answers with a private notebook and
+three dimmer switches. The same decoder LSTM is then counted carefully
+in a sequence-to-sequence model, and four practice problems are worked
+in full. Content formation borrows heavily from the original <a
+href="https://r-three.github.io/deep-learning-lecture-notes/lectures/06-sequences-recurrent-neural-networks-and-sequence-to-sequence-learning.html">Lecture 6
+notes (CSC2516)</a>.</p>
+</div>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#sequences-and-the-chain-rule"
+id="toc-sequences-and-the-chain-rule">Sequences and the Chain Rule</a>
+<ul>
+<li><a href="#one-model-every-factor"
+id="toc-one-model-every-factor">One model, every factor</a></li>
+<li><a href="#autoregressive-sampling"
+id="toc-autoregressive-sampling">Autoregressive sampling</a></li>
+</ul></li>
+<li><a href="#worked-count-a-separate-distribution-per-prefix"
+id="toc-worked-count-a-separate-distribution-per-prefix">Worked Count: A
+Separate Distribution per Prefix</a>
+<ul>
+<li><a href="#why-one-distribution-contributes-2-numbers"
+id="toc-why-one-distribution-contributes-2-numbers">Why one distribution
+contributes 2 numbers</a></li>
+<li><a href="#how-many-prefixes" id="toc-how-many-prefixes">How many
+prefixes</a></li>
+</ul></li>
+<li><a href="#from-a-word-to-a-vector"
+id="toc-from-a-word-to-a-vector">From a Word to a Vector</a>
+<ul>
+<li><a href="#index-then-one-hot" id="toc-index-then-one-hot">Index,
+then one-hot</a></li>
+<li><a href="#the-embedding-matrix-selects-a-column"
+id="toc-the-embedding-matrix-selects-a-column">The embedding matrix
+selects a column</a></li>
+</ul></li>
+<li><a href="#sec:vanilla" id="toc-sec:vanilla">The Vanilla Recurrent
+Network</a></li>
+<li><a href="#sec:bptt" id="toc-sec:bptt">Backpropagation through
+Time</a>
+<ul>
+<li><a href="#the-direct-path-and-the-indirect-path"
+id="toc-the-direct-path-and-the-indirect-path">The direct path and the
+indirect path</a></li>
+<li><a href="#sec:q3" id="toc-sec:q3">Worked gradient: scalar linear
+RNN</a></li>
+<li><a href="#sec:q4" id="toc-sec:q4">Worked gradient: scalar ReLU
+RNN</a></li>
+</ul></li>
+<li><a href="#sec:lstm" id="toc-sec:lstm">Long Short-Term Memory</a>
+<ul>
+<li><a href="#the-notebook-metaphor" id="toc-the-notebook-metaphor">The
+notebook metaphor</a></li>
+<li><a href="#the-six-lines-of-one-cell"
+id="toc-the-six-lines-of-one-cell">The six lines of one cell</a></li>
+<li><a href="#one-numerical-step" id="toc-one-numerical-step">One
+numerical step</a></li>
+<li><a href="#why-the-notebook-is-easier-to-train"
+id="toc-why-the-notebook-is-easier-to-train">Why the notebook is easier
+to train</a></li>
+</ul></li>
+<li><a href="#deep-and-bidirectional-rnns"
+id="toc-deep-and-bidirectional-rnns">Deep and Bidirectional
+RNNs</a></li>
+<li><a href="#language-modeling-and-sequence-classification"
+id="toc-language-modeling-and-sequence-classification">Language Modeling
+and Sequence Classification</a>
+<ul>
+<li><a href="#language-modeling-and-teacher-forcing"
+id="toc-language-modeling-and-teacher-forcing">Language modeling and
+teacher forcing</a></li>
+<li><a href="#sequence-classification"
+id="toc-sequence-classification">Sequence classification</a></li>
+</ul></li>
+<li><a href="#sec:seq2seq" id="toc-sec:seq2seq">Sequence-to-Sequence and
+the Decoder LSTM</a>
+<ul>
+<li><a href="#worked-count-two-ways-to-feed-the-context"
+id="toc-worked-count-two-ways-to-feed-the-context">Worked count: two
+ways to feed the context</a></li>
+</ul></li>
+<li><a href="#cheat-sheet" id="toc-cheat-sheet">Cheat Sheet</a></li>
+<li><a href="#references" id="toc-references">References</a></li>
+</ul>
+</nav>
+<h1 id="sequences-and-the-chain-rule">Sequences and the Chain Rule</h1>
+<p>Almost every model so far predicts one output from one input. A
+<em>sequence</em> is different: it is an ordered series of random
+variables <span
+class="math inline">\(\mathbf{x}_1,\mathbf{x}_2,\ldots,\mathbf{x}_T\)</span>.
+The order is part of the data. A spectrogram is a sequence of spectra, a
+video is a sequence of frames, and a sentence is a sequence of words.
+Shuffle the measurements in time and the series is no longer the same
+object.</p>
+<p>The chain rule writes the joint as a product of next-element
+conditionals: <span class="math display">\[\begin{equation}
+\label{eq:chain}
+\begin{aligned}
+p(\mathbf{x}_1,\ldots,\mathbf{x}_T)
+&amp;=
+p(\mathbf{x}_1)\,
+p(\mathbf{x}_2\mid\mathbf{x}_1)\,
+p(\mathbf{x}_3\mid\mathbf{x}_2,\mathbf{x}_1)
+\cdots
+p(\mathbf{x}_T\mid\mathbf{x}_{T-1},\ldots,\mathbf{x}_1).
+\end{aligned}
+\end{equation}\]</span> Any collection of random variables factors this
+way. The sequence matters because <em>this</em> order is the natural
+one: when the first thing we see is <span
+class="math inline">\(\mathbf{x}_1\)</span>, asking for <span
+class="math inline">\(p(\mathbf{x}_1)\)</span> is meaningful, and then
+asking for <span
+class="math inline">\(p(\mathbf{x}_2\mid\mathbf{x}_1)\)</span> is
+meaningful. Asking for <span
+class="math inline">\(p(\mathbf{x}_3\mid\mathbf{x}_{10})\)</span>
+conditions on something we have not observed yet.</p>
+<p>For the sentence “the cat sat”, <span
+class="math display">\[p(\text{the cat sat})
+=
+p(\text{the})\,
+p(\text{cat}\mid\text{the})\,
+p(\text{sat}\mid\text{the, cat}).\]</span></p>
+<h2 id="one-model-every-factor">One model, every factor</h2>
+<p>Each factor in <a href="#eq:chain" data-reference-type="eqref"
+data-reference="eq:chain">[eq:chain]</a> is a conditional distribution
+of one element given a prefix. Training a separate model for <span
+class="math inline">\(p(\mathbf{x}_1)\)</span>, another for <span
+class="math inline">\(p(\mathbf{x}_2\mid\mathbf{x}_1)\)</span>, and so
+on, does not scale. The practical object is a <em>single</em> model of
+<span
+class="math display">\[p(\mathbf{x}_t\mid\mathbf{x}_{t-1},\ldots,\mathbf{x}_1)\]</span>
+that accepts a prefix of any length. That one model supplies every
+factor. Recurrent networks are the first architecture in the course that
+does this. Transformers will do it later, without the recurrence.</p>
+<h2 id="autoregressive-sampling">Autoregressive sampling</h2>
+<p>A classifier predicts <span class="math inline">\(\mathbf{y}\)</span>
+given <span class="math inline">\(\mathbf{x}\)</span>. A model of the
+joint over sequences can also <em>generate</em>. Sample left to right,
+feeding each draw back in as the next prefix:</p>
+<ol>
+<li><p>draw <span class="math inline">\(\mathbf{x}_1\sim
+p(\mathbf{x}_1)\)</span>;</p></li>
+<li><p>draw <span class="math inline">\(\mathbf{x}_2\sim
+p(\mathbf{x}_2\mid\mathbf{x}_1)\)</span>, using the <span
+class="math inline">\(\mathbf{x}_1\)</span> just sampled;</p></li>
+<li><p>draw <span class="math inline">\(\mathbf{x}_3\sim
+p(\mathbf{x}_3\mid\mathbf{x}_2,\mathbf{x}_1)\)</span>, and continue
+until the sequence is finished.</p></li>
+</ol>
+<p>This is <strong>autoregressive sampling</strong>. Scoring an existing
+sequence is the same factorization with the observed tokens plugged in:
+multiply the conditionals. Generating and scoring are two uses of one
+next-element model.</p>
+<blockquote>
+<p><em>One-line intuition (kept throughout).</em> The prefix is the
+input. The next element is a classification problem. The hidden state is
+a running summary of that prefix, so the parameter count does not grow
+with <span class="math inline">\(T\)</span>.</p>
+</blockquote>
+<h1 id="worked-count-a-separate-distribution-per-prefix">Worked Count: A
+Separate Distribution per Prefix</h1>
+<div class="clarification">
+<p><strong>Clarification 1</strong>. <em>The vocabulary has 3 words and
+every sequence has exactly 4 words. An autoregressive model stores, for
+every possible prefix (including the empty prefix), a separate
+categorical distribution over the next word. A categorical distribution
+over 3 words has 2 free parameters. How many free parameters does the
+model have in total?</em></p>
+</div>
+<p>This is the lookup-table version of <a href="#eq:chain"
+data-reference-type="eqref" data-reference="eq:chain">[eq:chain]</a>,
+before any weight sharing. Call the words <span
+class="math inline">\(a,b,c\)</span>. A prefix is the beginning of a
+sequence, and the model needs a distribution only when a next word still
+has to be predicted. Sequences stop at length 4, so the prefixes have
+length <span class="math inline">\(0,1,2,\)</span> or <span
+class="math inline">\(3\)</span>.</p>
+<h2 id="why-one-distribution-contributes-2-numbers">Why one distribution
+contributes 2 numbers</h2>
+<p>One next-word distribution is three probabilities that add to 1:
+<span class="math display">\[p_a+p_b+p_c=1, \qquad p_a,p_b,p_c\ge
+0.\]</span> Choose <span class="math inline">\(p_a\)</span> and <span
+class="math inline">\(p_b\)</span>. The third is forced: <span
+class="math display">\[p_c=1-p_a-p_b.\]</span> If <span
+class="math inline">\(p_a=0.5\)</span> and <span
+class="math inline">\(p_b=0.2\)</span>, then <span
+class="math inline">\(p_c=0.3\)</span> is not a third choice. A
+categorical distribution over 3 words has <strong>2 free
+parameters</strong>. The same pair of numbers is stored again,
+separately, at every other prefix. The prefix <span
+class="math inline">\(ab\)</span> has its own pair, for example <span
+class="math inline">\(p(a\mid ab)=0.1\)</span> and <span
+class="math inline">\(p(b\mid ab)=0.7\)</span>, which forces <span
+class="math inline">\(p(c\mid ab)=0.2\)</span>. Those two numbers are a
+different pair from the empty prefix’s pair.</p>
+<h2 id="how-many-prefixes">How many prefixes</h2>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Prefix length</th>
+<th style="text-align: left;">What it predicts</th>
+<th style="text-align: left;">How many prefixes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">0 (empty)</td>
+<td style="text-align: left;"><span
+class="math inline">\(x_1\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(3^0=1\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;"><span
+class="math inline">\(x_2\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(3^1=3\)</span>, namely <span
+class="math inline">\(a,b,c\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">2</td>
+<td style="text-align: left;"><span
+class="math inline">\(x_3\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(3^2=9\)</span>, namely <span
+class="math inline">\(aa,ab,\ldots,cc\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">3</td>
+<td style="text-align: left;"><span
+class="math inline">\(x_4\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(3^3=27\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><span class="math display">\[1+3+9+27=40
+=
+\sum_{k=0}^{3} 3^k
+=
+\frac{3^4-1}{3-1}.\]</span> Each of the 40 tables stores 2 free numbers:
+<span class="math display">\[40\times 2=80.\]</span> The factor of 2 is
+“two choices per table,” not a second copy of the table. The factor of
+40 is “one table per prefix.”</p>
+<p>In general, vocabulary size <span class="math inline">\(|V|\)</span>
+and length <span class="math inline">\(T\)</span> give <span
+class="math display">\[\frac{|V|^T-1}{|V|-1}\]</span> prefixes, each
+with <span class="math inline">\(|V|-1\)</span> free probabilities. Here
+<span class="math inline">\(|V|=3\)</span> and <span
+class="math inline">\(T=4\)</span> already costs 80 numbers. Most long
+prefixes never appear in training text, so their rows have no data. The
+recurrent net in the next sections replaces this table by one shared set
+of weights. The hidden state <span class="math inline">\(h_t\)</span>
+stands in for the prefix, and the parameter count stays fixed when <span
+class="math inline">\(T\)</span> grows.</p>
+<h1 id="from-a-word-to-a-vector">From a Word to a Vector</h1>
+<p>A word is a string. There is no sensible way to multiply the string
+<span class="math inline">\(\texttt{cat}\)</span> by a weight matrix.
+Mapping text into the network has three steps: an index, a one-hot
+vector, and a short learned vector called an
+<strong>embedding</strong>.</p>
+<h2 id="index-then-one-hot">Index, then one-hot</h2>
+<p>A <strong>tokenizer</strong> fixes a vocabulary <span
+class="math inline">\(V\)</span> and gives each word an integer index.
+The index is only a name. In a four-word baby vocabulary,</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">word</th>
+<th style="text-align: center;">index</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">the</td>
+<td style="text-align: center;">1</td>
+</tr>
+<tr>
+<td style="text-align: left;">cat</td>
+<td style="text-align: center;">2</td>
+</tr>
+<tr>
+<td style="text-align: left;">sat</td>
+<td style="text-align: center;">3</td>
+</tr>
+<tr>
+<td style="text-align: left;">dog</td>
+<td style="text-align: center;">4</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Feeding the raw index into a matrix would be a mistake. If “the” is 1
+and “cat” is 2, multiplying by 2 treats “cat” as twice “the.” Words have
+no such size. The remedy is the same one used for class labels: a
+<strong>one-hot vector</strong>, with a single 1 in the index position
+and zeros elsewhere. Its length is <span
+class="math inline">\(|V|\)</span>: <span
+class="math display">\[\begin{align*}
+\text{the} &amp;= [1,\ 0,\ 0,\ 0], &amp;
+\text{cat} &amp;= [0,\ 1,\ 0,\ 0], \\
+\text{sat} &amp;= [0,\ 0,\ 1,\ 0], &amp;
+\text{dog} &amp;= [0,\ 0,\ 0,\ 1].
+\end{align*}\]</span> Every one-hot vector has the same length and the
+same norm. No word is numerically larger than another.</p>
+<h2 id="the-embedding-matrix-selects-a-column">The embedding matrix
+selects a column</h2>
+<p>Suppose each word is represented by 3 numbers (a real model uses
+hundreds). The <strong>embedding matrix</strong> <span
+class="math inline">\(W\)</span> has 3 rows, one per embedding
+coordinate, and 4 columns, one per vocabulary word. Invent a matrix the
+model might have learned: <span
+class="math display">\[\begin{array}{c@{\;}c}
+&amp;
+\begin{array}{cccc}
+\scriptstyle\text{the} &amp; \scriptstyle\text{cat} &amp;
+\scriptstyle\text{sat} &amp; \scriptstyle\text{dog}
+\end{array}
+\\[0.3em]
+W =
+&amp;
+\begin{bmatrix}
+0.2 &amp; 0.9 &amp; 0.1 &amp; 0.8 \\
+0.1 &amp; 0.7 &amp; 0.3 &amp; 0.6 \\
+-0.4 &amp; -0.2 &amp; 0.5 &amp; -0.1
+\end{bmatrix}
+\end{array}\]</span> The one-hot vector for “cat” is <span
+class="math inline">\([0,1,0,0]^\top\)</span>. Matrix–vector
+multiplication copies out the column where the 1 sits and wipes out the
+others: <span class="math display">\[W
+\begin{bmatrix}0\\1\\0\\0\end{bmatrix}
+=
+0\cdot(\text{col 1})
++1\cdot(\text{col 2})
++0\cdot(\text{col 3})
++0\cdot(\text{col 4})
+=
+\begin{bmatrix}0.9\\0.7\\-0.2\end{bmatrix}.\]</span> That column is the
+<strong>word embedding</strong> of “cat.” In code this is an index,
+<span class="math inline">\(W_{:,2}\)</span>. The product and the index
+do the same thing. The four embeddings in this baby matrix are <span
+class="math display">\[\begin{align*}
+\text{the}&amp;=[0.2,\ 0.1,\ -0.4], &amp;
+\text{cat}&amp;=[0.9,\ 0.7,\ -0.2], \\
+\text{sat}&amp;=[0.1,\ 0.3,\ 0.5], &amp;
+\text{dog}&amp;=[0.8,\ 0.6,\ -0.1].
+\end{align*}\]</span> “cat” and “dog” are close. “the” is far from both.
+The sentence “the cat sat” becomes three short vectors, one per step,
+and those vectors are what the network sees: <span
+class="math display">\[\begin{align*}
+t=1,\ \text{the} &amp;\mapsto [0.2,\ 0.1,\ -0.4], \\
+t=2,\ \text{cat} &amp;\mapsto [0.9,\ 0.7,\ -0.2], \\
+t=3,\ \text{sat} &amp;\mapsto [0.1,\ 0.3,\ 0.5].
+\end{align*}\]</span></p>
+<p>In the RNN of Section <a href="#sec:vanilla"
+data-reference-type="ref" data-reference="sec:vanilla">4</a>, the
+current input <span class="math inline">\(x_t\)</span> is this one-hot
+vector, and the first weight matrix <span
+class="math inline">\(W_x\)</span> <em>is</em> the embedding matrix. The
+product <span class="math inline">\(W_x x_t\)</span> is the current
+word’s embedding.</p>
+<p>Next-word prediction is then <span
+class="math inline">\(|V|\)</span>-way classification. With 4 words the
+network ends in a softmax with 4 scores. The sizes in the baby model
+are: one-hot input of length 4, embedding matrix <span
+class="math inline">\(3\times 4\)</span>, embedding of length 3, softmax
+output of length 4.</p>
+<h4 id="why-a-learned-vector-beats-the-index.">Why a learned vector
+beats the index.</h4>
+<p>Words that play similar roles get pushed toward similar columns,
+because that helps predict the next word. A famous illustration, with
+made-up 2-dimensional numbers: <span
+class="math display">\[\begin{align*}
+\text{king}&amp;=[0.9,\ 0.8], &amp;
+\text{man}&amp;=[0.7,\ 0.2], \\
+\text{woman}&amp;=[0.7,\ -0.2], &amp;
+\text{queen}&amp;=[0.9,\ 0.4].
+\end{align*}\]</span> <span
+class="math display">\[\text{king}-\text{man}+\text{woman}
+=
+[0.9,0.8]-[0.7,0.2]+[0.7,-0.2]
+=
+[0.9,0.4],\]</span> which lands on “queen.” Nobody stored that equation.
+It falls out of the learned columns (Mikolov et al., 2013).</p>
+<div class="clarification">
+<p><strong>Clarification 2</strong>. <em>How do the numbers in the
+embedding matrix get decided?</em></p>
+</div>
+<p>They are not chosen by hand. At the start of training every entry of
+<span class="math inline">\(W\)</span> is a small random number. The
+training signal is next-word prediction. For “the cat sat” the model is
+shown a prefix and asked for the following word:</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Prefix it sees</th>
+<th style="text-align: left;">Word it must predict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">the</td>
+<td style="text-align: left;">cat</td>
+</tr>
+<tr>
+<td style="text-align: left;">the cat</td>
+<td style="text-align: left;">sat</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The output is a softmax over the vocabulary. Cross-entropy is small
+when the score on the true next word is high. Backpropagation sends a
+gradient from that loss back into the only column that this example
+selected. If the current word is “the,” only the “the” column of <span
+class="math inline">\(W\)</span> has a nonzero gradient on this step,
+because the other one-hot entries were 0. A gradient step <span
+class="math display">\[W\leftarrow
+W-\eta\,\frac{\partial\mathcal{L}}{\partial W}\]</span> nudges that
+column. After many sentences, words that show up in similar contexts get
+nudged in similar ways, so their columns end up close.</p>
+<div class="clarification">
+<p><strong>Clarification 3</strong>. <em>So the word embedding is
+learned via the RNN?</em></p>
+</div>
+<p>In this lecture, yes. The embedding matrix is one of the RNN’s own
+weight matrices, <span class="math inline">\(W_x\)</span>, and it is
+trained in the same loop as the rest of the network. There is no
+separate embedding stage. A column is a useful embedding after training
+because using it that way made the next-word loss smaller.</p>
+<div class="clarification">
+<p><strong>Clarification 4</strong>. <em>How does that compare to
+word2vec?</em></p>
+</div>
+<p>Same kind of object: a column in a matrix that turns a word into a
+short vector. The training setup is different.</p>
+<p>Word2vec looks at a small window. In “the cat sat,” with one word on
+each side of the center, skip-gram asks: given “cat,” predict the
+neighbors “the” and “sat.” The model is shallow, <span
+class="math display">\[\text{``cat&#39;&#39;}
+\;\rightarrow\;
+\text{one column of the embedding matrix}
+\;\rightarrow\;
+\text{softmax over the vocabulary}.\]</span> There is no hidden state
+and no recurrence. After training, the rest of the model is discarded.
+The columns are the result. The king<span
+class="math inline">\(-\)</span>man<span
+class="math inline">\(+\)</span>woman pattern in the lecture comes from
+this training setup.</p>
+<p>The RNN’s question is the next word given the whole prefix, and the
+embedding is only the input to that computation: <span
+class="math display">\[\operatorname{embed}(\text{the})\rightarrow h_1,
+\qquad
+\operatorname{embed}(\text{cat})\rightarrow h_2,\]</span> where <span
+class="math inline">\(h_2\)</span> also depends on <span
+class="math inline">\(h_1\)</span>, and the softmax on <span
+class="math inline">\(h_2\)</span> is trained to put its mass on “sat.”
+The column stays attached to the language model. Context lives in the
+hidden state, not only in which columns happen to be near each
+other.</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">Word2vec</th>
+<th style="text-align: left;">RNN embedding in this lecture</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">What is trained</td>
+<td style="text-align: left;">the embedding matrix</td>
+<td style="text-align: left;"><span class="math inline">\(W_x\)</span>
+plus recurrent and output weights</td>
+</tr>
+<tr>
+<td style="text-align: left;">Prediction</td>
+<td style="text-align: left;">a nearby word in a fixed window</td>
+<td style="text-align: left;">the next word given the whole prefix</td>
+</tr>
+<tr>
+<td style="text-align: left;">Where context lives</td>
+<td style="text-align: left;">nearby columns of the matrix</td>
+<td style="text-align: left;">the hidden state <span
+class="math inline">\(h_t\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">What you keep</td>
+<td style="text-align: left;">the columns, used later as features</td>
+<td style="text-align: left;">the full network</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h1 id="sec:vanilla">The Vanilla Recurrent Network</h1>
+<p>Start from a one-hidden-layer network and make the smallest change
+that accepts a prefix of any length. The feedforward net, with <span
+class="math inline">\(W_x\)</span> reserved for the input weights, is
+<span
+class="math display">\[\mathbf{h}=\sigma(W_x\mathbf{x}+\mathbf{b}_h),
+\qquad
+\mathbf{o}=W_o\mathbf{h}+\mathbf{b}_o.\]</span> Make the hidden state a
+sequence, and add a recurrent connection so step <span
+class="math inline">\(t\)</span> depends on step <span
+class="math inline">\(t-1\)</span>: <span
+class="math display">\[\begin{equation}
+\label{eq:vanilla}
+\mathbf{h}_t
+=
+\sigma(W_x\mathbf{x}_t+W_h\mathbf{h}_{t-1}+\mathbf{b}_h),
+\qquad
+\mathbf{o}_t
+=
+W_o\mathbf{h}_t+\mathbf{b}_o.
+\end{equation}\]</span> The new term is <span
+class="math inline">\(W_h\mathbf{h}_{t-1}\)</span>. Start from an
+initial state <span class="math inline">\(\mathbf{h}_0\)</span> (usually
+zeros, or a learned vector) and feed <span
+class="math inline">\(\mathbf{x}_1\)</span> to get <span
+class="math inline">\(\mathbf{h}_1\)</span>, then <span
+class="math inline">\(\mathbf{x}_2\)</span> together with the retained
+<span class="math inline">\(\mathbf{h}_1\)</span> to get <span
+class="math inline">\(\mathbf{h}_2\)</span>, and so on.</p>
+<p>Because <span class="math inline">\(\mathbf{h}_t\)</span> is computed
+from <span class="math inline">\(\mathbf{x}_t\)</span> and <span
+class="math inline">\(\mathbf{h}_{t-1}\)</span>, and <span
+class="math inline">\(\mathbf{h}_{t-1}\)</span> from <span
+class="math inline">\(\mathbf{x}_{t-1}\)</span> and <span
+class="math inline">\(\mathbf{h}_{t-2}\)</span>, the state <span
+class="math inline">\(\mathbf{h}_t\)</span> depends on every past input.
+It is a summary of the prefix up to step <span
+class="math inline">\(t\)</span>: not a literal sentence, but a vector
+that carries information about all the inputs so far.</p>
+<p>Two properties follow.</p>
+<ul>
+<li><p><strong>Any length.</strong> A longer sequence means more updates
+of <span class="math inline">\(\mathbf{h}_t\)</span>. The input
+dimension of <span class="math inline">\(W_x\)</span> stays
+fixed.</p></li>
+<li><p><strong>A fixed parameter list.</strong> The same <span
+class="math inline">\(W_x\)</span>, <span
+class="math inline">\(W_h\)</span>, <span
+class="math inline">\(\mathbf{b}_h\)</span>, <span
+class="math inline">\(W_o\)</span>, and <span
+class="math inline">\(\mathbf{b}_o\)</span> are reused at every
+position, just as a convolution reuses one filter. Growing <span
+class="math inline">\(T\)</span> does not add parameters. The vocabulary
+size is fixed once chosen: <span
+class="math inline">\(\mathbf{x}_t\)</span> has dimension <span
+class="math inline">\(|V|\)</span>, so <span
+class="math inline">\(W_x\)</span> has a matching number of
+columns.</p></li>
+</ul>
+<p>As written, <a href="#eq:vanilla" data-reference-type="eqref"
+data-reference="eq:vanilla">[eq:vanilla]</a> emits an output <span
+class="math inline">\(\mathbf{o}_t\)</span> at every step, which is what
+next-element prediction wants. For sequence classification, feed the
+whole sequence and read a single output from the final state <span
+class="math inline">\(\mathbf{h}_T\)</span>.</p>
+<p>The network introduces no new kind of operation: nonlinearities, bias
+additions, and matrix multiplies. Automatic differentiation trains it.
+What changes is the shape of the graph once it is unrolled in time.</p>
+<h1 id="sec:bptt">Backpropagation through Time</h1>
+<p>Picture the recurrence unrolled: the same layer applied at <span
+class="math inline">\(t=1,2,\ldots,T\)</span>, then ordinary
+backpropagation on that long graph. Backpropagation on the unrolled
+graph is <strong>backpropagation through time</strong>. Write the hidden
+update as <span class="math inline">\(f\)</span> and the output map as
+<span class="math inline">\(g\)</span>, <span
+class="math display">\[\mathbf{h}_t=f(\mathbf{x}_t,\mathbf{h}_{t-1},W_h),
+\qquad
+\mathbf{o}_t=g(\mathbf{h}_t,W_o),\]</span> and put a loss at every step,
+<span class="math display">\[\mathcal{L}
+=
+\frac{1}{T}\sum_{t=1}^{T}\ell(\mathbf{y}_t,\mathbf{o}_t).\]</span> The
+parameter that makes this different from a feedforward net is <span
+class="math inline">\(W_h\)</span>, because the same matrix is used at
+every step. By linearity and the chain rule, <span
+class="math display">\[\frac{\mathrm{d}\mathcal{L}}{\mathrm{d}W_h}
+=
+\frac{1}{T}\sum_{t=1}^{T}
+\frac{\mathrm{d}\ell}{\mathrm{d}\mathbf{o}_t}
+\frac{\mathrm{d}\mathbf{o}_t}{\mathrm{d}\mathbf{h}_t}
+\frac{\mathrm{d}\mathbf{h}_t}{\mathrm{d}W_h}.\]</span> The first factor
+is a softmax cross-entropy gradient. The second is <span
+class="math inline">\(W_o\)</span>. The third factor is the hard
+one.</p>
+<h2 id="the-direct-path-and-the-indirect-path">The direct path and the
+indirect path</h2>
+<p><span class="math inline">\(W_h\)</span> affects <span
+class="math inline">\(\mathbf{h}_t\)</span> twice: directly, because
+<span class="math inline">\(\mathbf{h}_t\)</span> is computed with <span
+class="math inline">\(W_h\)</span>, and indirectly, because <span
+class="math inline">\(\mathbf{h}_t\)</span> depends on <span
+class="math inline">\(\mathbf{h}_{t-1}\)</span>, which itself depends on
+<span class="math inline">\(W_h\)</span>. When a variable reaches
+another through two paths, add the derivatives: <span
+class="math display">\[\begin{equation}
+\label{eq:bptt-recursion}
+\frac{\mathrm{d}\mathbf{h}_t}{\mathrm{d}W_h}
+=
+\frac{\partial f}{\partial W_h}
++
+\frac{\partial f}{\partial\mathbf{h}_{t-1}}
+\frac{\mathrm{d}\mathbf{h}_{t-1}}{\mathrm{d}W_h}.
+\end{equation}\]</span> The last factor has the same shape one step
+earlier. Unrolling the recursion produces an immediate term plus a sum
+of products of the step-to-step Jacobians <span
+class="math inline">\(\partial f/\partial\mathbf{h}_{j-1}\)</span>.</p>
+<p>For a <em>linear</em> vanilla RNN, <span
+class="math inline">\(f=W_x\mathbf{x}_t+W_h\mathbf{h}_{t-1}+\mathbf{b}_h\)</span>,
+each step-to-step factor is the same matrix <span
+class="math inline">\(W_h\)</span>, and <span
+class="math display">\[\begin{equation}
+\label{eq:linear-bptt}
+\frac{\mathrm{d}\mathbf{h}_t}{\mathrm{d}W_h}
+=
+\mathbf{h}_{t-1}
++
+\sum_{i=1}^{t-1}
+\Bigl(\prod_{j=i+1}^{t} W_h\Bigr)
+\mathbf{h}_{i-1}.
+\end{equation}\]</span> The product <span class="math inline">\(\prod
+W_h\)</span> is the same matrix multiplied by itself over and over. A
+chain of identical matrix multiplies grows without bound or shrinks
+toward zero according to the eigenvalues of <span
+class="math inline">\(W_h\)</span>. Viewing the unrolled RNN as a deep
+net whose layers share one weight matrix makes the point: exploding and
+vanishing gradients are especially severe here, because the matrices in
+the product are not merely similar. They are the same matrix.</p>
+<h2 id="sec:q3">Worked gradient: scalar linear RNN</h2>
+<div class="clarification">
+<p><strong>Clarification 5</strong>. <em>A scalar linear RNN has <span
+class="math inline">\(h_t=w h_{t-1}+x_t\)</span> with <span
+class="math inline">\(w=-2\)</span> and <span
+class="math inline">\(h_0=0\)</span>. The loss is <span
+class="math inline">\(\mathcal{L}=\sum_{t=1}^{6} h_t\)</span>. What is
+<span class="math inline">\(\partial\mathcal{L}/\partial
+x_1\)</span>?</em></p>
+</div>
+<p>This is <a href="#eq:linear-bptt" data-reference-type="eqref"
+data-reference="eq:linear-bptt">[eq:linear-bptt]</a> in the simplest
+setting: the shared weight is a number, and the question asks how the
+first input flows into every later state. Unroll from <span
+class="math inline">\(h_0=0\)</span>: <span
+class="math display">\[\begin{align*}
+h_1 &amp;= x_1, \\
+h_2 &amp;= w x_1+x_2, \\
+h_3 &amp;= w^2 x_1+w x_2+x_3, \\
+h_4 &amp;= w^3 x_1+\cdots, \\
+h_5 &amp;= w^4 x_1+\cdots, \\
+h_6 &amp;= w^5 x_1+\cdots.
+\end{align*}\]</span> Each new step multiplies the old state by <span
+class="math inline">\(w\)</span>, so the copy of <span
+class="math inline">\(x_1\)</span> inside <span
+class="math inline">\(h_t\)</span> is <span
+class="math inline">\(w^{t-1}x_1\)</span>.</p>
+<p>The loss adds the six states, so the derivative adds six derivatives:
+<span class="math display">\[\frac{\partial\mathcal{L}}{\partial x_1}
+=
+\frac{\partial h_1}{\partial x_1}
++\cdots+
+\frac{\partial h_6}{\partial x_1}.\]</span> Differentiate one state at a
+time. <span class="math inline">\(h_1=x_1\)</span>, so <span
+class="math inline">\(\partial h_1/\partial x_1=1\)</span>. Next, <span
+class="math inline">\(h_2=wx_1+x_2\)</span>. The input <span
+class="math inline">\(x_2\)</span> does not depend on <span
+class="math inline">\(x_1\)</span>, so <span
+class="math inline">\(\partial h_2/\partial x_1=w\)</span>. One more
+step multiplies by <span class="math inline">\(w\)</span> again: <span
+class="math inline">\(\partial h_3/\partial x_1=w^2\)</span>.
+Continuing, <span
+class="math display">\[\frac{\partial\mathcal{L}}{\partial x_1}
+=
+1+w+w^2+w^3+w^4+w^5.\]</span> The <span class="math inline">\(1\)</span>
+is <span class="math inline">\(w^0\)</span>, from <span
+class="math inline">\(h_1\)</span>. The last power is <span
+class="math inline">\(w^5\)</span>, from <span
+class="math inline">\(h_6\)</span>, because <span
+class="math inline">\(x_1\)</span> passes through five multiplications
+by <span class="math inline">\(w\)</span> to reach step 6. Substitute
+<span class="math inline">\(w=-2\)</span>: <span
+class="math display">\[\begin{align*}
+1&amp;=1, &amp;
+w&amp;=-2, &amp;
+w^2&amp;=4, &amp;
+w^3&amp;=-8, &amp;
+w^4&amp;=16, &amp;
+w^5&amp;=-32.
+\end{align*}\]</span> <span
+class="math display">\[1-2+4-8+16-32=-21.\]</span> The same sum is the
+geometric series <span class="math inline">\((1-w^6)/(1-w)\)</span>:
+<span class="math display">\[\frac{1-(-2)^6}{1-(-2)}
+=
+\frac{1-64}{3}
+=
+-21.\]</span> The terms grow by 2 at every step because <span
+class="math inline">\(|w|&gt;1\)</span>. That is the exploding gradient
+in scalar form: an input at step 1 still has a large effect on the loss
+at step 6. The alternating sign is the negative weight.</p>
+<h2 id="sec:q4">Worked gradient: scalar ReLU RNN</h2>
+<div class="clarification">
+<p><strong>Clarification 6</strong>. <em>A scalar ReLU RNN has <span
+class="math inline">\(h_t=\mathrm{ReLU}(w h_{t-1}+x_t)\)</span> with
+<span class="math inline">\(h_0=0\)</span> and <span
+class="math inline">\(w=2\)</span>. The inputs are <span
+class="math inline">\((x_1,\ldots,x_6)=(1,1,-8,2,1,1)\)</span> and the
+loss is <span
+class="math inline">\(\mathcal{L}=\sum_{t=1}^{6}h_t\)</span>. What is
+<span class="math inline">\(\mathrm{d}\mathcal{L}/\mathrm{d}w\)</span>?
+ReLU has slope <span class="math inline">\(1\)</span> for a positive
+input and slope <span class="math inline">\(0\)</span> for a negative
+input, and no pre-activation here is exactly <span
+class="math inline">\(0\)</span>.</em></p>
+</div>
+<p>Write the pre-activation <span class="math inline">\(z_t=w\cdot
+h_{t-1}+x_t\)</span>, so <span
+class="math inline">\(h_t=\mathrm{ReLU}(z_t)\)</span>. Run the
+recurrence forward before any derivative.</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><span
+class="math inline">\(t\)</span></th>
+<th style="text-align: center;"><span
+class="math inline">\(x_t\)</span></th>
+<th style="text-align: center;"><span class="math inline">\(z_t=w
+h_{t-1}+x_t\)</span></th>
+<th style="text-align: center;">sign</th>
+<th style="text-align: center;"><span
+class="math inline">\(h_t\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(2\cdot
+0+1=1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(&gt;0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(2\cdot
+1+1=3\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(&gt;0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(3\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;"><span
+class="math inline">\(-8\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(2\cdot
+3-8=-2\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(&lt;0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;"><span
+class="math inline">\(2\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(2\cdot
+0+2=2\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(&gt;0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(2\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">5</td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(2\cdot
+2+1=5\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(&gt;0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(5\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">6</td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(2\cdot
+5+1=11\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(&gt;0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(11\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The six slopes are <span class="math inline">\(1,1,0,1,1,1\)</span>.
+The loss is the sum of the hidden states, so <span
+class="math display">\[\frac{\mathrm{d}\mathcal{L}}{\mathrm{d}w}
+=
+\frac{\mathrm{d}h_1}{\mathrm{d}w}+\cdots+\frac{\mathrm{d}h_6}{\mathrm{d}w}.\]</span>
+The weight <span class="math inline">\(w\)</span> is reused at every
+step, and each <span class="math inline">\(h_t\)</span> is built from
+<span class="math inline">\(h_{t-1}\)</span>. Both effects count. This
+is the scalar version of <a href="#eq:bptt-recursion"
+data-reference-type="eqref"
+data-reference="eq:bptt-recursion">[eq:bptt-recursion]</a>, with an
+extra ReLU slope.</p>
+<p>On a positive step, <span class="math inline">\(h_t=z_t\)</span>, so
+the derivatives match. On a negative step, <span
+class="math inline">\(h_t\)</span> is the constant <span
+class="math inline">\(0\)</span>, so its derivative is <span
+class="math inline">\(0\)</span>. Differentiating the product <span
+class="math inline">\(w\cdot h_{t-1}\)</span> has two pieces, because
+both factors can change with <span class="math inline">\(w\)</span>:</p>
+<ul>
+<li><p><span class="math inline">\(w\)</span> changes while <span
+class="math inline">\(h_{t-1}\)</span> is held at its current value.
+That piece contributes <span
+class="math inline">\(h_{t-1}\)</span>.</p></li>
+<li><p><span class="math inline">\(h_{t-1}\)</span> changes because
+earlier steps used <span class="math inline">\(w\)</span>, and that
+change is then multiplied by the current <span
+class="math inline">\(w\)</span>. That piece contributes <span
+class="math inline">\(w\cdot\mathrm{d}h_{t-1}/\mathrm{d}w\)</span>.</p></li>
+</ul>
+<p>The input <span class="math inline">\(x_t\)</span> is a fixed number.
+Combining the two pieces with the ReLU slope, <span
+class="math display">\[\begin{equation}
+\label{eq:relu-bptt}
+\frac{\mathrm{d}h_t}{\mathrm{d}w}
+=
+\mathrm{ReLU}&#39;(z_t)
+\cdot
+\Bigl(
+h_{t-1}
++
+w\cdot\frac{\mathrm{d}h_{t-1}}{\mathrm{d}w}
+\Bigr).
+\end{equation}\]</span> The given <span
+class="math inline">\(h_0=0\)</span> was not computed from <span
+class="math inline">\(w\)</span>, so <span
+class="math inline">\(\mathrm{d}h_0/\mathrm{d}w=0\)</span>. Apply <a
+href="#eq:relu-bptt" data-reference-type="eqref"
+data-reference="eq:relu-bptt">[eq:relu-bptt]</a> one step at a time.</p>
+<p><span class="math inline">\(t=1\)</span>. Slope <span
+class="math inline">\(1\)</span>, previous state <span
+class="math inline">\(0\)</span>, previous derivative <span
+class="math inline">\(0\)</span>: <span
+class="math display">\[\frac{\mathrm{d}h_1}{\mathrm{d}w}
+=
+1\cdot(0+2\cdot 0)=0.\]</span> <span
+class="math inline">\(h_1=1\)</span> came from <span
+class="math inline">\(2\cdot 0+1\)</span>. Changing <span
+class="math inline">\(w\)</span> does not change <span
+class="math inline">\(2\cdot 0\)</span>.</p>
+<p><span class="math inline">\(t=2\)</span>. Slope <span
+class="math inline">\(1\)</span>, and <span
+class="math inline">\(h_1=1\)</span> does not move with <span
+class="math inline">\(w\)</span>: <span
+class="math display">\[\frac{\mathrm{d}h_2}{\mathrm{d}w}
+=
+1\cdot(1+2\cdot 0)=1.\]</span> A nudge checks the arithmetic. If <span
+class="math inline">\(w\)</span> becomes <span
+class="math inline">\(2.001\)</span>, then <span
+class="math inline">\(z_2=2.001\cdot 1+1=3.001\)</span>. The state rose
+by <span class="math inline">\(0.001\)</span>, which is a rate of <span
+class="math inline">\(1\)</span>.</p>
+<p><span class="math inline">\(t=3\)</span>. The inside would move,
+<span
+class="math display">\[h_2+w\cdot\frac{\mathrm{d}h_2}{\mathrm{d}w}=3+2\cdot
+1=5,\]</span> but <span class="math inline">\(z_3=-2&lt;0\)</span>, so
+the slope in front is <span class="math inline">\(0\)</span>: <span
+class="math display">\[\frac{\mathrm{d}h_3}{\mathrm{d}w}=0\cdot
+5=0.\]</span> <span class="math inline">\(h_3\)</span> is stuck at <span
+class="math inline">\(0\)</span>. A small move in <span
+class="math inline">\(w\)</span> leaves <span
+class="math inline">\(z_3\)</span> negative, and ReLU of a negative
+number is still <span class="math inline">\(0\)</span>.</p>
+<p><span class="math inline">\(t=4\)</span>. Slope <span
+class="math inline">\(1\)</span>, but both <span
+class="math inline">\(h_3\)</span> and its derivative are <span
+class="math inline">\(0\)</span>: <span
+class="math display">\[\frac{\mathrm{d}h_4}{\mathrm{d}w}
+=
+1\cdot(0+2\cdot 0)=0.\]</span> <span
+class="math inline">\(z_4=2\)</span> is the fixed input <span
+class="math inline">\(x_4\)</span>. Locally it does not contain a living
+copy of <span class="math inline">\(w\)</span>.</p>
+<p><span class="math inline">\(t=5\)</span>. Slope <span
+class="math inline">\(1\)</span>, and <span
+class="math inline">\(h_4=2\)</span> does not move: <span
+class="math display">\[\frac{\mathrm{d}h_5}{\mathrm{d}w}
+=
+1\cdot(2+2\cdot 0)=2.\]</span> The same nudge gives <span
+class="math inline">\(z_5=2.001\cdot 2+1=5.002\)</span>, a rise of <span
+class="math inline">\(0.002\)</span>, which is a rate of <span
+class="math inline">\(2\)</span>.</p>
+<p><span class="math inline">\(t=6\)</span>. Slope <span
+class="math inline">\(1\)</span>, and now <span
+class="math inline">\(h_5\)</span> itself moves, so both pieces are
+nonzero: <span class="math display">\[\frac{\mathrm{d}h_6}{\mathrm{d}w}
+=
+1\cdot(5+2\cdot 2)=5+4=9.\]</span> The <span
+class="math inline">\(5\)</span> is the direct piece: <span
+class="math inline">\(w\)</span> multiplies the current <span
+class="math inline">\(h_5=5\)</span>. The <span
+class="math inline">\(4\)</span> is the indirect piece: <span
+class="math inline">\(h_5\)</span> grows at rate <span
+class="math inline">\(2\)</span>, and that growth is multiplied by <span
+class="math inline">\(w=2\)</span>. Checking the nudge: at <span
+class="math inline">\(w=2.001\)</span>, <span
+class="math inline">\(h_5=5.002\)</span> and <span
+class="math display">\[h_6=2.001\cdot 5.002+1=11.009002.\]</span> The
+old <span class="math inline">\(h_6\)</span> was <span
+class="math inline">\(11\)</span>. A rise of about <span
+class="math inline">\(0.009\)</span> over a <span
+class="math inline">\(0.001\)</span> change in <span
+class="math inline">\(w\)</span> is a rate of <span
+class="math inline">\(9\)</span>.</p>
+<p>Add the six rates: <span
+class="math display">\[\frac{\mathrm{d}\mathcal{L}}{\mathrm{d}w}
+=
+0+1+0+0+2+9
+=
+12.\]</span> The zero at <span class="math inline">\(t=3\)</span> is the
+ReLU cutting the chain. Everything <span
+class="math inline">\(w\)</span> did at <span
+class="math inline">\(t=1\)</span> and <span
+class="math inline">\(t=2\)</span> stops there, because <span
+class="math inline">\(h_3\)</span> stays <span
+class="math inline">\(0\)</span> and passes a zero derivative to <span
+class="math inline">\(t=4\)</span>. A new chain starts at <span
+class="math inline">\(t=5\)</span>, where <span
+class="math inline">\(w\)</span> multiplies <span
+class="math inline">\(h_4=2\)</span>, and that chain continues into
+<span class="math inline">\(t=6\)</span>.</p>
+<h1 id="sec:lstm">Long Short-Term Memory</h1>
+<p>The vanilla net remembers only through <span
+class="math inline">\(W_h\)</span>. How much of the past survives, and
+how strongly, is entirely up to that one matrix. The <strong>long
+short-term memory</strong> network (LSTM; Hochreiter and Schmidhuber,
+1997) adds a second memory and explicit switches for keeping, writing,
+and reading it.</p>
+<h2 id="the-notebook-metaphor">The notebook metaphor</h2>
+<p>Keep two memories.</p>
+<ul>
+<li><p><span class="math inline">\(\mathbf{c}_t\)</span> is the
+<strong>notebook</strong>. It stays private. A fact can sit on the page
+for many steps.</p></li>
+<li><p><span class="math inline">\(\mathbf{h}_t\)</span> is what the
+cell <strong>says out loud</strong>. The rest of the network only hears
+<span class="math inline">\(\mathbf{h}_t\)</span>.</p></li>
+</ul>
+<p>Three dimmer switches, each a number between <span
+class="math inline">\(0\)</span> and <span
+class="math inline">\(1\)</span>, decide what happens to the notebook. A
+fourth vector, between <span class="math inline">\(-1\)</span> and <span
+class="math inline">\(1\)</span>, is the draft of the new note.</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Symbol</th>
+<th style="text-align: left;">Name in the formula</th>
+<th style="text-align: left;">Metaphor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><span
+class="math inline">\(\mathbf{f}_t\)</span></td>
+<td style="text-align: left;">forget gate</td>
+<td style="text-align: left;">eraser switch: how much of the old page to
+keep</td>
+</tr>
+<tr>
+<td style="text-align: left;"><span
+class="math inline">\(\mathbf{i}_t\)</span></td>
+<td style="text-align: left;">input gate</td>
+<td style="text-align: left;">pen switch: how much of the new note to
+write</td>
+</tr>
+<tr>
+<td style="text-align: left;"><span
+class="math inline">\(\tilde{\mathbf{c}}_t\)</span></td>
+<td style="text-align: left;">candidate cell</td>
+<td style="text-align: left;">the new note being considered</td>
+</tr>
+<tr>
+<td style="text-align: left;"><span
+class="math inline">\(\mathbf{o}_t\)</span></td>
+<td style="text-align: left;">output gate</td>
+<td style="text-align: left;">reading switch: how loudly to read the
+page aloud</td>
+</tr>
+<tr>
+<td style="text-align: left;"><span
+class="math inline">\(\mathbf{c}_t\)</span></td>
+<td style="text-align: left;">cell state</td>
+<td style="text-align: left;">the notebook after this step</td>
+</tr>
+<tr>
+<td style="text-align: left;"><span
+class="math inline">\(\mathbf{h}_t\)</span></td>
+<td style="text-align: left;">hidden state</td>
+<td style="text-align: left;">what is said out loud</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A switch near <span class="math inline">\(1\)</span> is open. A
+switch near <span class="math inline">\(0\)</span> is shut. The switches
+are not hand-set. Each one is a small dense layer ending in a sigmoid,
+so the value lands in <span class="math inline">\((0,1)\)</span>. The
+new note ends in a <span class="math inline">\(\tanh\)</span>, so it
+lands in <span class="math inline">\((-1,1)\)</span>.</p>
+<h2 id="the-six-lines-of-one-cell">The six lines of one cell</h2>
+<p>Given the new input <span
+class="math inline">\(\mathbf{x}_t\)</span>, the previous spoken state
+<span class="math inline">\(\mathbf{h}_{t-1}\)</span>, and the previous
+notebook <span class="math inline">\(\mathbf{c}_{t-1}\)</span>, <span
+class="math display">\[\begin{align}
+\mathbf{f}_t
+&amp;=
+\sigma(W_{xf}\mathbf{x}_t+W_{hf}\mathbf{h}_{t-1}+\mathbf{b}_f)
+&amp;&amp;\text{eraser},
+\label{eq:lstm-f}\\
+\mathbf{i}_t
+&amp;=
+\sigma(W_{xi}\mathbf{x}_t+W_{hi}\mathbf{h}_{t-1}+\mathbf{b}_i)
+&amp;&amp;\text{pen},
+\label{eq:lstm-i}\\
+\tilde{\mathbf{c}}_t
+&amp;=
+\tanh(W_{xc}\mathbf{x}_t+W_{hc}\mathbf{h}_{t-1}+\mathbf{b}_c)
+&amp;&amp;\text{new note},
+\label{eq:lstm-c}\\
+\mathbf{o}_t
+&amp;=
+\sigma(W_{xo}\mathbf{x}_t+W_{ho}\mathbf{h}_{t-1}+\mathbf{b}_o)
+&amp;&amp;\text{reading switch},
+\label{eq:lstm-o}\\
+\mathbf{c}_t
+&amp;=
+\mathbf{f}_t\odot\mathbf{c}_{t-1}
++
+\mathbf{i}_t\odot\tilde{\mathbf{c}}_t
+&amp;&amp;\text{new notebook},
+\label{eq:lstm-cell}\\
+\mathbf{h}_t
+&amp;=
+\mathbf{o}_t\odot\tanh(\mathbf{c}_t)
+&amp;&amp;\text{spoken state}.
+\label{eq:lstm-h}
+\end{align}\]</span> The symbol <span
+class="math inline">\(\odot\)</span> multiplies matching entries. With a
+notebook of one number it is ordinary multiplication. With a longer
+notebook, each slot has its own dimmer. In words, <a
+href="#eq:lstm-cell" data-reference-type="eqref"
+data-reference="eq:lstm-cell">[eq:lstm-cell]</a> says <span
+class="math display">\[\begin{align*}
+\text{new notebook}
+&amp;=
+(\text{how much of the old page to keep})
+\times
+(\text{old notebook}) \\
+&amp;\quad+
+(\text{how much of the new note to write})
+\times
+(\text{new note}).
+\end{align*}\]</span></p>
+<p>Figure <a href="#fig:lstm-notebook" data-reference-type="ref"
+data-reference="fig:lstm-notebook">1</a> is the same six lines as a
+picture. The four dense layers all see <span
+class="math inline">\(\mathbf{x}_t\)</span> and <span
+class="math inline">\(\mathbf{h}_{t-1}\)</span>. Only the notebook
+update sees <span class="math inline">\(\mathbf{c}_{t-1}\)</span>, and
+it sees it by multiplication with the eraser, not by a fresh matrix
+<span class="math inline">\(W_h\)</span>.</p>
+<figure id="fig:lstm-notebook" data-latex-placement="ht">
+
+<figcaption>One LSTM step as a notebook. The eraser, pen, new note, and
+reading switch are four separate dense layers of <span
+class="math inline">\(\mathbf{x}_t\)</span> and <span
+class="math inline">\(\mathbf{h}_{t-1}\)</span>. The notebook is updated
+by multiplying, not by another <span class="math inline">\(W_h\)</span>.
+The spoken state is the only vector the rest of the network
+hears.</figcaption>
+</figure>
+<h2 id="one-numerical-step">One numerical step</h2>
+<p>Take a one-number notebook so every product is ordinary
+multiplication. Last step ended at <span
+class="math inline">\(c_{t-1}=4\)</span> and <span
+class="math inline">\(h_{t-1}=0.5\)</span>. The new input is <span
+class="math inline">\(x_t=1\)</span>. The weighted sums below are
+example weights, chosen so the switches come out as easy numbers.</p>
+<p>Eraser, mostly open: <span class="math display">\[f_t=\sigma(1.0\cdot
+1+1.0\cdot 0.5)=\sigma(1.5)\approx 0.82.\]</span> Pen, half open: <span
+class="math inline">\(i_t=\sigma(0)=0.50\)</span>. New note: <span
+class="math inline">\(\tilde{c}_t=\tanh(0.5)\approx 0.46\)</span>.
+Reading switch, mostly open: <span
+class="math inline">\(o_t=\sigma(2.0)\approx 0.88\)</span>.</p>
+<p>Update the notebook: <span class="math display">\[c_t=0.82\times
+4+0.50\times 0.46=3.28+0.23=3.51.\]</span> The old <span
+class="math inline">\(4\)</span> was mostly kept. The new note added a
+little. Then <span class="math inline">\(\tanh(3.51)\approx 1\)</span>,
+so <span class="math display">\[h_t=0.88\times 1\approx 0.88.\]</span>
+The next step receives <span class="math inline">\(c_t=3.51\)</span> and
+<span class="math inline">\(h_t=0.88\)</span>.</p>
+<p>Three further settings of the same old notebook <span
+class="math inline">\(c_{t-1}=4\)</span> show what the switches are
+for.</p>
+<ul>
+<li><p><strong>Keep the old note.</strong> Eraser open, pen shut: <span
+class="math inline">\(c_t=1\times 4+0\times(\text{anything})=4\)</span>.
+The new word arrives and the page does not change.</p></li>
+<li><p><strong>Erase and rewrite.</strong> Eraser shut, pen open, new
+note <span class="math inline">\(-2\)</span>: <span
+class="math inline">\(c_t=0\times 4+1\times(-2)=-2\)</span>.</p></li>
+<li><p><strong>Remember it, but stay quiet.</strong> Notebook holds
+<span class="math inline">\(4\)</span>, reading switch shut: <span
+class="math inline">\(h_t=0\times\tanh(4)=0\)</span>. The page still
+holds <span class="math inline">\(4\)</span> for later. The spoken
+output this step is <span class="math inline">\(0\)</span>.</p></li>
+</ul>
+<h2 id="why-the-notebook-is-easier-to-train">Why the notebook is easier
+to train</h2>
+<p>In a vanilla RNN the path back through time multiplies by <span
+class="math inline">\(W_h\)</span> at every step, which is the product
+in <a href="#eq:linear-bptt" data-reference-type="eqref"
+data-reference="eq:linear-bptt">[eq:linear-bptt]</a>. On the notebook
+path the backward pass multiplies by the eraser <span
+class="math inline">\(f_t\)</span>. If that switch stays near <span
+class="math inline">\(1\)</span>, the old value passes through almost
+unchanged, step after step, because the update is an addition <span
+class="math inline">\(\mathbf{c}_t=\mathbf{f}_t\odot\mathbf{c}_{t-1}+\cdots\)</span>
+rather than a fresh multiplication by <span
+class="math inline">\(W_h\)</span>. A fact from word 2 can still affect
+word 50. The design was motivated by that goal, then checked
+empirically: LSTMs train more reliably than vanilla RNNs. The particular
+gates, the separate cell, and the <span
+class="math inline">\(\tanh\)</span> on the candidate are part of that
+design, not a derivation from a unique formula.</p>
+<div class="clarification">
+<p><strong>Clarification 7</strong>. <em>Are <span
+class="math inline">\(W_{xf}\)</span>, <span
+class="math inline">\(W_{hf}\)</span>, <span
+class="math inline">\(W_{xi}\)</span>, <span
+class="math inline">\(W_{hi}\)</span>, and the other <span
+class="math inline">\(W\)</span>’s all learned?</em></p>
+</div>
+<p>Yes. Every one of them is a parameter, initialized randomly and
+updated by gradient descent together with the rest of the network. Each
+gate has its own pair, and the candidate note has a pair too. Nothing is
+shared between them.</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Piece</th>
+<th style="text-align: left;">Weights on <span
+class="math inline">\(\mathbf{x}_t\)</span></th>
+<th style="text-align: left;">Weights on <span
+class="math inline">\(\mathbf{h}_{t-1}\)</span></th>
+<th style="text-align: left;">Bias</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">eraser <span
+class="math inline">\(\mathbf{f}_t\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(W_{xf}\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(W_{hf}\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(\mathbf{b}_f\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">pen <span
+class="math inline">\(\mathbf{i}_t\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(W_{xi}\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(W_{hi}\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(\mathbf{b}_i\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">new note <span
+class="math inline">\(\tilde{\mathbf{c}}_t\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(W_{xc}\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(W_{hc}\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(\mathbf{b}_c\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">reading switch <span
+class="math inline">\(\mathbf{o}_t\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(W_{xo}\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(W_{ho}\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(\mathbf{b}_o\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>That is 8 matrices and 4 bias vectors for one LSTM cell. Training is
+the same loop as the vanilla RNN. The loss is still the next-word
+cross-entropy. Backpropagation through time sends a gradient to every
+matrix that participated. <span class="math inline">\(W_{xf}\)</span>
+moves when changing the eraser makes the next-word loss smaller. <span
+class="math inline">\(W_{xi}\)</span> moves when changing the pen helps.
+Each matrix learns its own job because each one sits on a different path
+into <span class="math inline">\(\mathbf{c}_t\)</span> and <span
+class="math inline">\(\mathbf{h}_t\)</span>.</p>
+<h1 id="deep-and-bidirectional-rnns">Deep and Bidirectional RNNs</h1>
+<p>Two extensions are worth having in hand before the tasks.</p>
+<p><strong>Deep RNNs</strong> stack layers. The first layer reads the
+input. Each later layer reads the hidden state of the layer below it, at
+the same time step, together with its own previous state: <span
+class="math display">\[\mathbf{h}_t^{(1)}
+=
+f^{(1)}(\mathbf{x}_t,\mathbf{h}_{t-1}^{(1)}),
+\qquad
+\mathbf{h}_t^{(2)}
+=
+f^{(2)}(\mathbf{h}_t^{(1)},\mathbf{h}_{t-1}^{(2)}),
+\quad\ldots\]</span> Stacking here is the same idea as stacking
+feedforward layers. There are simply more indices.</p>
+<p><strong>Bidirectional RNNs</strong> run two layers with separate
+parameters, one left to right and one right to left: <span
+class="math display">\[\overrightarrow{\mathbf{h}}_t
+=
+\overrightarrow{f}(\mathbf{x}_t,\overrightarrow{\mathbf{h}}_{t-1}),
+\qquad
+\overleftarrow{\mathbf{h}}_t
+=
+\overleftarrow{f}(\mathbf{x}_t,\overleftarrow{\mathbf{h}}_{t+1}).\]</span>
+Concatenating them at a step gives a vector that has seen the full past
+and the full future. That is the wrong tool for predicting the next
+element, because the future is what the model is trying to predict. It
+is the right tool when the whole input sequence is already in hand, for
+example when the job is to classify it.</p>
+<h1 id="language-modeling-and-sequence-classification">Language Modeling
+and Sequence Classification</h1>
+<h2 id="language-modeling-and-teacher-forcing">Language modeling and
+teacher forcing</h2>
+<p>Predicting <span
+class="math inline">\(p(\mathbf{x}_t\mid\mathbf{x}_{t-1},\ldots,\mathbf{x}_1)\)</span>
+is <strong>language modeling</strong>, and a model trained to do it is a
+language model. Training uses <strong>teacher forcing</strong>: to
+predict <span class="math inline">\(\mathbf{x}_t\)</span>, feed the true
+prefix up through <span class="math inline">\(\mathbf{x}_{t-1}\)</span>,
+regardless of what the model would have predicted for the earlier
+positions, and train it to match the true <span
+class="math inline">\(\mathbf{x}_t\)</span>.</p>
+<p>A trained language model is useful in the two ways from Section <a
+href="#sec:vanilla" data-reference-type="ref"
+data-reference="sec:vanilla">4</a>’s setup. It can sample new sequences
+autoregressively. It can also score an existing sequence, by multiplying
+the next-element probabilities along the observed tokens, and so say
+whether that sequence looks typical under the model.</p>
+<h2 id="sequence-classification">Sequence classification</h2>
+<p>Sequence classification predicts one label from the whole input,
+<span
+class="math inline">\(p(\mathbf{y}\mid\mathbf{x}_1,\ldots,\mathbf{x}_T)\)</span>.
+Run the recurrence to the end and read a single dense layer off the
+final state: <span
+class="math display">\[\mathbf{h}_t=f(\mathbf{x}_t,\mathbf{h}_{t-1}),
+\qquad
+\mathbf{o}=W_o\mathbf{h}_T+\mathbf{b}_o.\]</span> The final state <span
+class="math inline">\(\mathbf{h}_T\)</span> is the summary of the entire
+input. When the full sequence is available at prediction time, a
+bidirectional net can combine the final forward state <span
+class="math inline">\(\overrightarrow{\mathbf{h}}_T\)</span> with the
+final backward state <span
+class="math inline">\(\overleftarrow{\mathbf{h}}_1\)</span>. Document
+topic, sentiment of a review, and spam detection are all this pattern: a
+sequence of word embeddings in, one class out.</p>
+<h1 id="sec:seq2seq">Sequence-to-Sequence and the Decoder LSTM</h1>
+<p>Sequence-to-sequence learning generates an output sequence from an
+input sequence. The standard example is translation: <span
+class="math inline">\(\mathbf{x}\)</span> is an English sentence and
+<span class="math inline">\(\mathbf{y}\)</span> is its French
+translation. The output is still produced autoregressively, but each
+output word is conditioned on the output so far <em>and</em> on the full
+input. Writing the output clock as <span
+class="math inline">\(t&#39;\)</span>, <span
+class="math display">\[p(\mathbf{y}_{t&#39;}
+\mid
+\mathbf{y}_{t&#39;-1},\ldots,\mathbf{y}_1,\;
+\mathbf{x}_T,\ldots,\mathbf{x}_1).\]</span></p>
+<p>The lecture builds this from two RNNs (Sutskever et al., 2014).</p>
+<ol>
+<li><p>An <strong>encoder</strong> reads the input, <span
+class="math inline">\(\mathbf{h}_t=f(\mathbf{x}_t,\mathbf{h}_{t-1})\)</span>,
+and produces a sequence of hidden states. The encoder may be
+bidirectional, because the whole input is available.</p></li>
+<li><p>The <strong>context</strong> is the encoder’s final state, <span
+class="math inline">\(\mathbf{c}=\mathbf{h}_T\)</span>. One vector
+summarizes the input sentence.</p></li>
+<li><p>A <strong>decoder</strong> generates the output, <span
+class="math display">\[\begin{equation}
+        \label{eq:decoder}
+        \mathbf{s}_{t&#39;}
+        =
+        g(\mathbf{y}_{t&#39;-1},\;\mathbf{s}_{t&#39;-1},\;\mathbf{c}).
+\end{equation}\]</span> Its state predicts <span
+class="math inline">\(\mathbf{y}_{t&#39;}\)</span>. The decoder is not
+bidirectional: it writes left to right.</p></li>
+</ol>
+<p>Generation starts by feeding a beginning-of-sequence token, a token
+with no meaning in the language and a definite meaning to the model. It
+stops when the decoder emits an end-of-sequence token.</p>
+<div class="clarification">
+<p><strong>Clarification 8</strong>. <em>Which line is the
+decoder?</em></p>
+</div>
+<p>The decoder is the whole of <span class="math inline">\(g\)</span>
+in <a href="#eq:decoder" data-reference-type="eqref"
+data-reference="eq:decoder">[eq:decoder]</a>, not one gate inside it.
+When <span class="math inline">\(g\)</span> is a single-layer LSTM, one
+call of <span class="math inline">\(g\)</span> runs <a href="#eq:lstm-f"
+data-reference-type="eqref"
+data-reference="eq:lstm-f">[eq:lstm-f]</a>–<a href="#eq:lstm-h"
+data-reference-type="eqref" data-reference="eq:lstm-h">[eq:lstm-h]</a>
+and returns the new spoken state. That spoken state is <span
+class="math inline">\(\mathbf{s}_{t&#39;}=\mathbf{h}_{t&#39;}\)</span>.
+A dense layer then turns <span
+class="math inline">\(\mathbf{h}_{t&#39;}\)</span> into a distribution
+over the next output word. The encoder is a separate network that
+already ran and produced <span
+class="math inline">\(\mathbf{c}\)</span>.</p>
+<p>The three arguments of <span class="math inline">\(g\)</span> land in
+different places.</p>
+<ul>
+<li><p><span class="math inline">\(\mathbf{y}_{t&#39;-1}\)</span> is the
+previous output word. It enters as its embedding.</p></li>
+<li><p><span class="math inline">\(\mathbf{s}_{t&#39;-1}\)</span> is the
+decoder’s own memory from the previous output step. For an LSTM that
+memory is the pair <span
+class="math inline">\((\mathbf{h}_{t&#39;-1},\mathbf{c}_{t&#39;-1})\)</span>:
+spoken state and notebook. The notebook here is the LSTM cell, not the
+encoder context. The lecture uses <span
+class="math inline">\(\mathbf{c}\)</span> for the context, so the rest
+of this section keeps <span class="math inline">\(\mathbf{c}\)</span>
+for the encoder vector and <span
+class="math inline">\(\mathbf{h}\)</span> for the spoken state.</p></li>
+<li><p><span class="math inline">\(\mathbf{c}\)</span> is the encoder
+summary. The two options below put it in different slots of <span
+class="math inline">\(g\)</span>.</p></li>
+</ul>
+<p>There are two standard ways to make <span
+class="math inline">\(g\)</span> depend on <span
+class="math inline">\(\mathbf{c}\)</span>.</p>
+<ol>
+<li><p>Concatenate <span class="math inline">\(\mathbf{c}\)</span> with
+the embedding of the previous output word at every step: <span
+class="math display">\[\operatorname{concat}\bigl(
+            \operatorname{embed}(\mathbf{y}_{t&#39;-1}),\,\mathbf{c}
+          \bigr).\]</span> The context is re-injected on every output
+word. The initial spoken state can be zeros.</p></li>
+<li><p>Set the decoder’s initial spoken state to the context, <span
+class="math inline">\(\mathbf{s}_0=\mathbf{c}\)</span>. This uses <span
+class="math inline">\(\mathbf{c}\)</span> once. Later steps see the
+input sentence only because that starting memory was carried forward.
+The usual other choices for an initial state are all zeros, or a learned
+vector.</p></li>
+</ol>
+<h2 id="worked-count-two-ways-to-feed-the-context">Worked count: two
+ways to feed the context</h2>
+<div class="clarification">
+<p><strong>Clarification 9</strong>. <em>The decoder is a single-layer
+LSTM with hidden size 8 and 5-dimensional input embeddings, with biases
+everywhere. The encoder context <span
+class="math inline">\(\mathbf{c}\)</span> has dimension 8. In Option A,
+<span class="math inline">\(\mathbf{c}\)</span> is concatenated to the
+embedding of the previous output token at every step, and the initial
+hidden state is zero. In Option B, the inputs are just the embeddings,
+and the initial hidden state is set to <span
+class="math inline">\(\mathbf{c}\)</span>. How many more parameters does
+the LSTM have in Option A than in Option B?</em></p>
+</div>
+<p>The answer is <span class="math inline">\(256\)</span>. Concatenating
+the context makes the decoder input wider, so the four matrices that
+multiply that input grow. Copying <span
+class="math inline">\(\mathbf{c}\)</span> into the initial spoken state
+adds no weights.</p>
+<h4 id="what-h-is-and-why-the-matrices-in-front-of-it-stay-put.">What
+<span class="math inline">\(h\)</span> is, and why the matrices in front
+of it stay put.</h4>
+<p>Hidden size 8 means the spoken state is always these eight numbers:
+<span class="math display">\[\mathbf{h}
+=
+[h_1,h_2,h_3,h_4,h_5,h_6,h_7,h_8].\]</span> A matrix that multiplies
+<span class="math inline">\(\mathbf{h}\)</span> needs one column per
+entry of <span class="math inline">\(\mathbf{h}\)</span>. There are
+eight entries, and the product must be eight gate values, so each of
+<span class="math inline">\(W_{hf}\)</span>, <span
+class="math inline">\(W_{hi}\)</span>, <span
+class="math inline">\(W_{hc}\)</span>, and <span
+class="math inline">\(W_{ho}\)</span> is <span
+class="math inline">\(8\times 8\)</span> in both options.</p>
+<p>Option A does not lengthen <span
+class="math inline">\(\mathbf{h}\)</span>. It lengthens a different
+vector, the decoder input <span
+class="math inline">\(\mathbf{x}\)</span>. Let the previous output
+embedding be <span class="math inline">\([e_1,\ldots,e_5]\)</span> and
+the context be <span class="math inline">\([c_1,\ldots,c_8]\)</span>.
+<span class="math display">\[\begin{align*}
+\text{Option B:}&amp;\quad
+\mathbf{x}=[e_1,\ldots,e_5]
+\quad\text{(length 5)},
+&amp;&amp;
+\mathbf{h}_0=\mathbf{c}.
+\\
+\text{Option A:}&amp;\quad
+\mathbf{x}=[e_1,\ldots,e_5,\,c_1,\ldots,c_8]
+\quad\text{(length \(5+8=13\))},
+&amp;&amp;
+\mathbf{h}_0=\mathbf{0}.
+\end{align*}\]</span> Setting <span
+class="math inline">\(\mathbf{h}_0=\mathbf{c}\)</span> is an assignment.
+The context is already 8 numbers, the same length as the spoken state,
+so it can be copied straight into <span
+class="math inline">\(\mathbf{h}_0\)</span>. There is no new matrix.
+Option A’s <span class="math inline">\(\mathbf{h}_0=\mathbf{0}\)</span>
+is a constant. From the next step on, <span
+class="math inline">\(\mathbf{h}\)</span> is still 8 numbers produced by
+the LSTM, in both options.</p>
+<h4 id="where-the-4-matrices-and-the-extra-columns-come-from.">Where the
+4 matrices and the extra columns come from.</h4>
+<p>Look back at <a href="#eq:lstm-f" data-reference-type="eqref"
+data-reference="eq:lstm-f">[eq:lstm-f]</a>–<a href="#eq:lstm-c"
+data-reference-type="eqref" data-reference="eq:lstm-c">[eq:lstm-c]</a>.
+Four lines multiply the decoder input <span
+class="math inline">\(\mathbf{x}\)</span>: <span
+class="math display">\[W_{xf},\qquad W_{xi},\qquad W_{xc},\qquad
+W_{xo}.\]</span> Those are the four matrices that change. The other
+four, <span class="math inline">\(W_{hf},W_{hi},W_{hc},W_{ho}\)</span>,
+multiply <span class="math inline">\(\mathbf{h}\)</span>, whose length
+stays 8.</p>
+<p>A matrix can multiply a vector only when it has one column per entry
+of that vector. One row of <span class="math inline">\(W_{xf}\)</span>
+in Option B has five weights, one per embedding coordinate: <span
+class="math display">\[[w_1\ w_2\ w_3\ w_4\ w_5]
+\cdot
+[e_1\ e_2\ e_3\ e_4\ e_5].\]</span> Option A glues on eight context
+numbers, so the same row needs eight more weights: <span
+class="math display">\[[w_1\ \cdots\ w_5\ \ u_1\ \cdots\ u_8]
+\cdot
+[e_1\ \cdots\ e_5\ \ c_1\ \cdots\ c_8].\]</span> The <span
+class="math inline">\(u\)</span>’s are the extra columns. The eraser has
+8 rows, one per notebook slot: <span class="math display">\[8\text{
+rows}\times 8\text{ new columns}=64.\]</span> One gate therefore has
+<span class="math display">\[8\times 13-8\times 5=64\]</span> more
+weights in Option A. The pen, the new note, and the reading switch are
+separate matrices of the same shape, so each contributes its own 64:
+<span class="math display">\[4\times 64=256.\]</span></p>
+<p>The biases do not move this difference. Each bias is added after the
+multiply and has one number per notebook slot, so each gate has 8 bias
+parameters in both options. The 5-dimensional embedding table is the
+same size in both options, and the question does not give a vocabulary
+size, so the embedding table and the final softmax are not part of the
+comparison. The question asks only about the LSTM.</p>
+<p>Full totals, as a check: <span class="math display">\[\begin{align*}
+\text{Option A}
+&amp;=
+4(8\cdot 13)+4(8\cdot 8)+4(8)
+=
+416+256+32
+=
+704,\\
+\text{Option B}
+&amp;=
+4(8\cdot 5)+4(8\cdot 8)+4(8)
+=
+160+256+32
+=
+448.
+\end{align*}\]</span> <span class="math display">\[704-448=256.\]</span>
+The <span class="math inline">\(256\)</span> recurrent weights and the
+<span class="math inline">\(32\)</span> biases sit in both totals, so
+they cancel. Only the widened input matrices remain: <span
+class="math inline">\(416-160=256\)</span>.</p>
+<h1 id="cheat-sheet">Cheat Sheet</h1>
+<ol>
+<li><p><strong>Sequence.</strong> Ordered random variables. The chain
+rule writes the joint as next-element conditionals. One model of <span
+class="math inline">\(p(x_t\mid x_{&lt;t})\)</span> scores sequences and
+samples them autoregressively.</p></li>
+<li><p><strong>Lookup table.</strong> A separate categorical
+distribution per prefix costs <span
+class="math inline">\(\bigl((|V|^T-1)/(|V|-1)\bigr)\times(|V|-1)\)</span>
+free parameters. For <span class="math inline">\(|V|=3\)</span>, <span
+class="math inline">\(T=4\)</span>, that is <span
+class="math inline">\(40\times 2=80\)</span>. The <span
+class="math inline">\(2\)</span> is “probabilities minus the constraint
+that they sum to 1.”</p></li>
+<li><p><strong>Embedding.</strong> One-hot times <span
+class="math inline">\(W\)</span> copies out one column. That column is
+the word embedding, and in this lecture <span
+class="math inline">\(W\)</span> is the RNN’s input matrix <span
+class="math inline">\(W_x\)</span>, trained by next-word cross-entropy.
+Word2vec learns a similar column with a shallow window objective and
+then keeps the columns alone.</p></li>
+<li><p><strong>Vanilla RNN.</strong> <span
+class="math inline">\(\mathbf{h}_t=\sigma(W_x\mathbf{x}_t+W_h\mathbf{h}_{t-1}+\mathbf{b}_h)\)</span>.
+Any length, fixed parameter list. <span
+class="math inline">\(\mathbf{h}_t\)</span> summarizes the
+prefix.</p></li>
+<li><p><strong>BPTT.</strong> Unroll, then backpropagate. The recurrent
+term has a direct path and an indirect path through <span
+class="math inline">\(\mathbf{h}_{t-1}\)</span>. In the linear case the
+indirect path multiplies by <span class="math inline">\(W_h\)</span>
+once per step, so gradients explode or vanish. Scalar check: <span
+class="math inline">\(w=-2\)</span>, loss <span
+class="math inline">\(\sum_{t=1}^{6}h_t\)</span>, gives <span
+class="math inline">\(\partial\mathcal{L}/\partial
+x_1=1+w+\cdots+w^5=-21\)</span>.</p></li>
+<li><p><strong>ReLU cut.</strong> A negative pre-activation has slope
+<span class="math inline">\(0\)</span> and stops the chain. In the
+worked ReLU RNN, <span
+class="math inline">\(\mathrm{d}\mathcal{L}/\mathrm{d}w=12\)</span>,
+with the early chain killed at the step whose pre-activation is <span
+class="math inline">\(-2\)</span>.</p></li>
+<li><p><strong>LSTM notebook.</strong> <span
+class="math inline">\(\mathbf{c}_t\)</span> is the private page, <span
+class="math inline">\(\mathbf{h}_t\)</span> is what is said aloud.
+Eraser <span class="math inline">\(\mathbf{f}_t\)</span>, pen <span
+class="math inline">\(\mathbf{i}_t\)</span>, new note <span
+class="math inline">\(\tilde{\mathbf{c}}_t\)</span>, reading switch
+<span class="math inline">\(\mathbf{o}_t\)</span>. Eight matrices and
+four biases, all learned, none shared. The backward path through the
+page multiplies by <span class="math inline">\(\mathbf{f}_t\)</span>; a
+forget gate near <span class="math inline">\(1\)</span> carries a memory
+across many steps.</p></li>
+<li><p><strong>Uses.</strong> Language modeling with teacher forcing;
+sequence classification from <span
+class="math inline">\(\mathbf{h}_T\)</span> (bidirectional when the
+whole input is available); sequence-to-sequence with an encoder context
+<span class="math inline">\(\mathbf{c}=\mathbf{h}_T\)</span> fed to a
+left-to-right decoder.</p></li>
+<li><p><strong>Decoder parameter gap.</strong> Concatenating an
+8-dimensional context onto a 5-dimensional embedding widens each of the
+four input matrices <span class="math inline">\(W_{x*}\)</span> from
+<span class="math inline">\(8\times 5\)</span> to <span
+class="math inline">\(8\times 13\)</span>. Four times <span
+class="math inline">\(8\times 8\)</span> extra columns is <span
+class="math inline">\(256\)</span>. The matrices in front of <span
+class="math inline">\(\mathbf{h}\)</span> stay <span
+class="math inline">\(8\times 8\)</span> because <span
+class="math inline">\(\mathbf{h}\)</span> stays length 8. Setting <span
+class="math inline">\(\mathbf{h}_0=\mathbf{c}\)</span> adds no
+weights.</p></li>
+</ol>
+<p><strong>Remember:</strong> <em>a one-hot vector points at a column;
+that column is the embedding, and the RNN learns it. The hidden state is
+a shared-weight stand-in for the whole prefix. Backpropagation through
+time multiplies by the same <span class="math inline">\(W_h\)</span> at
+every step. The LSTM’s notebook is updated by addition and by dimmer
+switches, so a memory can sit still. In a decoder, widening the input
+widens only the matrices that multiply the input.</em></p>
+<h1 class="unnumbered" id="references">References</h1>
+<ul>
+<li><p>Hochreiter, S., and Schmidhuber, J. (1997). Long Short-Term
+Memory. <em>Neural Computation</em>, 9(8), 1735–1780.</p></li>
+<li><p>Mikolov, T., Sutskever, I., Chen, K., Corrado, G., and Dean, J.
+(2013). Distributed Representations of Words and Phrases and Their
+Compositionality. <em>NeurIPS</em>.</p></li>
+<li><p>Sutskever, I., Vinyals, O., and Le, Q. V. (2014). Sequence to
+Sequence Learning with Neural Networks. <em>NeurIPS</em>.</p></li>
+</ul>
+      </article>
+      <details class="source-panel" open>
+        <summary>LaTeX source for this note (<code>lecture-06-sequences-rnns.tex</code>)</summary>
+        <div class="inner">
+          <p style="color:var(--muted);font-family:ui-sans-serif,system-ui,sans-serif;font-size:0.9rem">
+            The published note is maintained as LaTeX. The rendered text above is generated from this source; the full <code>.tex</code> is embedded below so the site showcases the note source directly (not a PDF viewer).
+          </p>
+          <pre id="tex-source">Loading LaTeX source…</pre>
+        </div>
+      </details>
+    </main>
+  </div>
+  <script>
+    fetch('./lecture-06-sequences-rnns.tex')
+      .then(r => r.text())
+      .then(t => { document.getElementById('tex-source').textContent = t; })
+      .catch(() => { document.getElementById('tex-source').textContent = 'Could not load lecture-06-sequences-rnns.tex'; });
+  </script>
+</body>
+</html>

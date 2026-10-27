@@ -12,7 +12,7 @@ Formation of these notes borrows heavily from the [original course website (CSC2
 |---|-------|--------|
 | 07 | [Attention & Self-Attention](./notes/07-attention/) | Published |
 | 08 | Transformers | Upcoming |
-| 06 | Sequences & RNNs | Upcoming |
+| 06 | [Sequences & RNNs](./notes/06-sequences-rnns/) | Published |
 | 05 | CNNs & Residuals | Upcoming |
 | 04 | Gradient Methods | Upcoming |
 | 03 | Regularization & Autodiff | Upcoming |
@@ -23,6 +23,22 @@ Each published note is maintained as LaTeX and shown on the site as:
 
 1. a **rendered HTML reading view** (generated from the `.tex`), and
 2. the **embedded `.tex` source** on the same page (not a PDF viewer).
+
+## Lecture 06 — Sequences & RNNs
+
+- Reading page: [`notes/06-sequences-rnns/`](./notes/06-sequences-rnns/)
+- LaTeX source: [`notes/06-sequences-rnns/lecture-06-sequences-rnns.tex`](./notes/06-sequences-rnns/lecture-06-sequences-rnns.tex)
+- Root copy (for local compile): [`lecture-06-sequences-rnns.tex`](./lecture-06-sequences-rnns.tex)
+
+**Topics:** sequences and the chain rule, prefix lookup tables, word embeddings versus word2vec, the vanilla RNN, backpropagation through time, the LSTM notebook, language modeling, and sequence-to-sequence decoders. Includes the worked parameter counts and scalar gradient problems.
+
+### Rebuild the note page from LaTeX
+
+```bash
+pandoc lecture-06-sequences-rnns.tex -s -f latex -t html5 --mathjax --toc --toc-depth=2 -o /tmp/lecture-06-body.html
+# then regenerate notes/06-sequences-rnns/index.html with the site wrapper
+pdflatex lecture-06-sequences-rnns.tex   # optional PDF
+```
 
 ## Lecture 07 — Attention & Self-Attention
 
