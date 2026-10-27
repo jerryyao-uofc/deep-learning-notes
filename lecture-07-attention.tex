@@ -13,7 +13,7 @@
 \author{Deep Learning Notes\\
 \small Ground-up intuitions and worked examples\\[0.35em]
 \small Formation borrows heavily from the
-\href{https://r-three.github.io/deep-learning-lecture-notes/}{CSC2516 course lecture notes}}
+\href{https://r-three.github.io/deep-learning-lecture-notes/}{original course website (CSC2516)}}
 \date{}
 
 \begin{document}
@@ -30,8 +30,8 @@ including path length, a fully worked toy example, position encodings, and
 multi-headed attention. A final section shows \textbf{attention pooling}
 inside a small end-to-end network that maps a variable-length sequence to a
 scalar prediction. Content formation borrows heavily from the original
-\href{https://r-three.github.io/deep-learning-lecture-notes/}{CSC2516 course
-lecture notes}.
+\href{https://r-three.github.io/deep-learning-lecture-notes/}{original course
+website (CSC2516)}.
 \end{abstract}
 
 \tableofcontents
@@ -268,7 +268,7 @@ output} clock; unprimed \(t\) is the \emph{encoder / source} clock.
 Encoder states stay fixed; the attention weights change with \(t'\).
 
 %----------------------------------------------------------------------
-\section{Self-Attention Setup}
+\section{Worked Self-Attention: A Tiny Numerical Walk-Through}
 %----------------------------------------------------------------------
 
 Seq2seq attention works, but the mechanism that dominates modern models is
@@ -276,44 +276,12 @@ Seq2seq attention works, but the mechanism that dominates modern models is
 \emph{same} sequence. The layer still maps a length-\(T\) sequence to a
 length-\(T\) sequence (like an RNN layer), but without recurrence.
 
-Start with token vectors \(x_1,x_2,\ldots,x_T\in\mathbb{R}^{m}\) (e.g.\ word
-embeddings, or outputs of a previous layer). Project every token with three
-learned matrices shared across positions:
-\begin{align}
-  q_t &= W_Q x_t, \label{eq:q} \\
-  k_t &= W_K x_t, \label{eq:k} \\
-  v_t &= W_V x_t. \label{eq:v}
-\end{align}
-
-\begin{center}
-\begin{tabular}{@{}lll@{}}
-\toprule
-Vector & Role & Intuition \\
-\midrule
-query \(q_t\)  & ``what am I looking for?''   & search request \\
-key \(k_t\)    & ``what do I advertise?''     & index / label \\
-value \(v_t\)  & ``what content do I offer?'' & payload to copy \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent\textbf{Shapes.}
-\(W_Q,W_K\in\mathbb{R}^{d_k\times m}\) and \(W_V\in\mathbb{R}^{d_v\times m}\).
-Queries and keys share dimension \(d_k\) so a dot product is well-defined.
-Values may use a different \(d_v\).
-
-Comparison is a scaled dot product,
-\[
-  \alpha(q,k_i)=\frac{q^\top k_i}{\sqrt{d_k}},
-\]
-and reduction is again a softmax-weighted average of the values. Scaling by
-\(\sqrt{d_k}\) keeps score variance from growing with dimension (and
-prevents a saturated, nearly one-hot softmax that hurts gradients).
-
-After the projections we have three length-\(T\) sequences---queries, keys,
-and values---ready to be compared. The next sections walk through every
-matrix with tiny numbers; afterward we return to \emph{why} this rewrite
-is attractive via path length.
+The next several sections compute one self-attention layer by hand with
+tiny matrices, so every score and weight is visible. After that walk-through
+we return to a compact formal statement of self-attention and to
+\emph{path length}---why this rewrite is attractive compared with
+convolution and recurrence---and then to position encodings and
+multi-headed attention.
 
 %----------------------------------------------------------------------
 \section{Baby Toy Example: The Ingredients}
@@ -604,6 +572,106 @@ In the encoder--decoder case, the query came from the decoder and the
 states being averaged came from the encoder. In self-attention, one
 sequence supplies \(Q\), \(K\), and \(V\), so each token can gather
 context from the rest of the \emph{same} sentence (including itself).
+
+%----------------------------------------------------------------------
+\section{Self-Attention (Formal View and Path Length)}
+%----------------------------------------------------------------------
+
+Having worked a length-\(T\) rewrite by hand, we collect the definition and
+then ask why the architecture is attractive.
+
+\subsection{Definition}
+
+
+Seq2seq attention works, but the mechanism that dominates modern models is
+\textbf{self-attention}: queries, keys, and values all come from the
+\emph{same} sequence. The layer still maps a length-\(T\) sequence to a
+length-\(T\) sequence (like an RNN layer), but without recurrence.
+
+Start with token vectors \(x_1,x_2,\ldots,x_T\in\mathbb{R}^{m}\) (e.g.\ word
+embeddings, or outputs of a previous layer). Project every token with three
+learned matrices shared across positions:
+\begin{align}
+  q_t &= W_Q x_t, \label{eq:q} \\
+  k_t &= W_K x_t, \label{eq:k} \\
+  v_t &= W_V x_t. \label{eq:v}
+\end{align}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Vector & Role & Intuition \\
+\midrule
+query \(q_t\)  & ``what am I looking for?''   & search request \\
+key \(k_t\)    & ``what do I advertise?''     & index / label \\
+value \(v_t\)  & ``what content do I offer?'' & payload to copy \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textbf{Shapes.}
+\(W_Q,W_K\in\mathbb{R}^{d_k\times m}\) and \(W_V\in\mathbb{R}^{d_v\times m}\).
+Queries and keys share dimension \(d_k\) so a dot product is well-defined.
+Values may use a different \(d_v\).
+
+Comparison is a scaled dot product,
+\[
+  \alpha(q,k_i)=\frac{q^\top k_i}{\sqrt{d_k}},
+\]
+and reduction is again a softmax-weighted average of the values. Scaling by
+\(\sqrt{d_k}\) keeps score variance from growing with dimension (and
+prevents a saturated, nearly one-hot softmax that hurts gradients).
+
+After the projections we have three length-\(T\) sequences---queries, keys,
+and values. Comparison is applied for each of the \(T\) queries against all
+keys; reduction then produces one output vector per query, hence a
+length-\(T\) output sequence.
+
+\subsection{Path length}
+
+
+Having seen self-attention compute a length-\(T\) rewrite of its input,
+a natural question is why this is attractive compared with convolution or
+recurrence. Path length measures how many sequential operations are needed to mix
+information between two positions of the input---closely related to the
+idea of a receptive field. Consider a length-5 sequence and ask when an
+output can depend on both \(x_1\) and \(x_5\).
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Layer & Path length (\(x_1\leftrightarrow x_5\)) & Parallelism \\
+\midrule
+1D conv (kernel \(3\))
+  & \(2\) (receptive field grows by \(2\) per layer)
+  & Positions in one layer are parallel; depth is sequential \\
+RNN
+  & \(5\) (signal travels step by step)
+  & Inherently sequential along time \\
+Self-attention
+  & \(1\) (every output mixes all inputs in one layer)
+  & All outputs computable in parallel \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+More generally, for length \(T\): convolution has path length
+\(O(T/k)\) for kernel size \(k\); recurrence has path length \(O(T)\);
+self-attention has path length \(O(1)\). Short paths are not a guarantee
+that optimization will discover long-range dependencies, but they remove
+an architectural obstruction: information need not pass through a long
+chain of Jacobians.
+
+Path length also counts work that cannot be parallelized. Convolutional
+layers stack depth-wise; RNNs wait on the previous time step.
+Self-attention outputs are independent weighted averages of the same
+inputs, so the layer is a pair of large matrix multiplies---well matched
+to modern hardware:
+\[
+  S=\frac{QK^\top}{\sqrt{d_k}},
+  \qquad
+  Y=\operatorname{softmax}_{\text{row}}(S)\,V.
+\]
 
 %----------------------------------------------------------------------
 \section{Position Encoding: Why Self-Attention Needs Order}
@@ -1190,53 +1258,6 @@ Without the position step, both orders would produce equivalent
 Absolute embeddings add ``I am at index \(t\)'' to the token itself;
 relative methods encode ``you are \(i-j\) steps away from me'' inside the
 comparison.
-
-%----------------------------------------------------------------------
-\section{Why Self-Attention? Path Length}
-%----------------------------------------------------------------------
-
-Having seen self-attention compute a length-\(T\) rewrite of its input,
-a natural question is why this is attractive compared with convolution or
-recurrence. Path length measures how many sequential operations are needed to mix
-information between two positions of the input---closely related to the
-idea of a receptive field. Consider a length-5 sequence and ask when an
-output can depend on both \(x_1\) and \(x_5\).
-
-\begin{center}
-\begin{tabular}{@{}lll@{}}
-\toprule
-Layer & Path length (\(x_1\leftrightarrow x_5\)) & Parallelism \\
-\midrule
-1D conv (kernel \(3\))
-  & \(2\) (receptive field grows by \(2\) per layer)
-  & Positions in one layer are parallel; depth is sequential \\
-RNN
-  & \(5\) (signal travels step by step)
-  & Inherently sequential along time \\
-Self-attention
-  & \(1\) (every output mixes all inputs in one layer)
-  & All outputs computable in parallel \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-More generally, for length \(T\): convolution has path length
-\(O(T/k)\) for kernel size \(k\); recurrence has path length \(O(T)\);
-self-attention has path length \(O(1)\). Short paths are not a guarantee
-that optimization will discover long-range dependencies, but they remove
-an architectural obstruction: information need not pass through a long
-chain of Jacobians.
-
-Path length also counts work that cannot be parallelized. Convolutional
-layers stack depth-wise; RNNs wait on the previous time step.
-Self-attention outputs are independent weighted averages of the same
-inputs, so the layer is a pair of large matrix multiplies---well matched
-to modern hardware:
-\[
-  S=\frac{QK^\top}{\sqrt{d_k}},
-  \qquad
-  Y=\operatorname{softmax}_{\text{row}}(S)\,V.
-\]
 
 %----------------------------------------------------------------------
 \section{Multi-Headed Self-Attention}

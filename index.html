@@ -3,134 +3,107 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Lecture 07 — Attention and Self-Attention</title>
-  <meta name="description" content="Ground-up study notes on attention and self-attention, with intuition and simple examples." />
+  <title>Deep Learning Notes</title>
+  <meta name="description" content="A showcase of ground-up deep learning study notes with intuition and simple examples." />
   <style>
     :root {
-      --bg: #f6f3ee;
-      --ink: #1c1b19;
-      --muted: #5c574f;
-      --line: #d9d2c5;
-      --card: #fffdf9;
-      --accent: #0f4c5c;
+      --bg: #f7f4ef; --ink: #1c1b19; --muted: #5c574f; --line: #d9d2c5;
+      --card: #fffdf9; --accent: #0f4c5c; --accent-soft: #e7f0f2;
     }
     * { box-sizing: border-box; }
     body {
-      margin: 0;
+      margin: 0; color: var(--ink);
       font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-      color: var(--ink);
       background:
         radial-gradient(ellipse at top left, #efe8db 0%, transparent 45%),
         linear-gradient(180deg, var(--bg), #efe9df);
       min-height: 100vh;
     }
-    main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 2.5rem 1.25rem 3rem;
-    }
-    header {
-      margin-bottom: 1.5rem;
-    }
+    a { color: var(--accent); }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 2.75rem 1.25rem 3.5rem; }
     .eyebrow {
-      font-family: ui-sans-serif, system-ui, sans-serif;
-      font-size: 0.78rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 0.5rem;
+      font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.78rem;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem;
     }
-    h1 {
-      font-size: clamp(1.7rem, 3vw, 2.4rem);
-      line-height: 1.15;
-      margin: 0 0 0.6rem;
-      font-weight: 600;
+    h1 { font-size: clamp(2rem, 4vw, 2.8rem); line-height: 1.1; margin: 0 0 0.75rem; font-weight: 600; }
+    .lede { max-width: 40rem; color: var(--muted); font-size: 1.08rem; line-height: 1.55; margin: 0 0 1.75rem; }
+    .layout { display: grid; grid-template-columns: 1.4fr 0.9fr; gap: 1.25rem; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+      padding: 1.25rem 1.3rem; box-shadow: 0 10px 30px rgba(40,30,10,0.05);
     }
-    .lede {
-      max-width: 42rem;
-      color: var(--muted);
-      font-size: 1.05rem;
-      line-height: 1.55;
-      margin: 0 0 1.25rem;
+    .card h2 { margin: 0 0 0.35rem; font-size: 1.25rem; }
+    .card p { margin: 0 0 1rem; color: var(--muted); }
+    .btn {
+      display: inline-block; text-decoration: none; border: 1px solid var(--ink);
+      background: var(--ink); color: #fff; padding: 0.55rem 0.95rem; border-radius: 999px;
+      font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.9rem;
     }
-    .lede a { color: var(--accent); }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.65rem;
-      margin-bottom: 1.5rem;
+    .menu-title {
+      font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem;
+      letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.75rem;
     }
-    a.btn {
-      display: inline-block;
-      text-decoration: none;
-      border: 1px solid var(--ink);
-      background: var(--ink);
-      color: #fff;
-      padding: 0.55rem 0.95rem;
-      border-radius: 999px;
-      font-family: ui-sans-serif, system-ui, sans-serif;
-      font-size: 0.9rem;
+    .menu { list-style: none; padding: 0; margin: 0; }
+    .menu li { margin: 0 0 0.45rem; }
+    .menu a, .menu span {
+      display: block; text-decoration: none; color: var(--ink);
+      border: 1px solid var(--line); border-radius: 12px; padding: 0.7rem 0.8rem;
+      background: #fff; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.92rem;
     }
-    a.btn.secondary {
-      background: transparent;
-      color: var(--ink);
-    }
-    .viewer {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 10px 30px rgba(40, 30, 10, 0.06);
-      min-height: 75vh;
-    }
-    iframe {
-      width: 100%;
-      height: 80vh;
-      border: 0;
-      display: block;
-      background: #fff;
-    }
-    footer {
-      margin-top: 1.25rem;
-      font-family: ui-sans-serif, system-ui, sans-serif;
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-    footer a { color: var(--accent); }
+    .menu a:hover { background: var(--accent-soft); border-color: #b7d0d6; }
+    .menu .upcoming { color: var(--muted); background: #f3efe7; }
+    .menu small { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 0.2rem; }
+    footer { margin-top: 1.75rem; color: var(--muted); font-size: 0.9rem; }
   </style>
 </head>
 <body>
-  <main>
-    <header>
-      <p class="eyebrow">Deep Learning Notes</p>
-      <h1>Lecture 07 — Attention and Self-Attention</h1>
-      <p class="lede">
-        Ground-up notes with extra intuition and simple worked examples:
-        attention as associative memory, soft 1-NN, sequence-to-sequence with
-        attention, self-attention, path length, position encodings, multi-head
-        attention, and attention pooling. Formation of these notes borrows
-        heavily from the original
-        <a href="https://r-three.github.io/deep-learning-lecture-notes/">CSC2516 course lecture notes</a>.
-      </p>
-      <div class="actions">
-        <a class="btn" href="lecture-07-attention.pdf">Open PDF</a>
-        <a class="btn secondary" href="https://github.com/jerryyao-uofc/deep-learning-notes">View source on GitHub</a>
-      </div>
-    </header>
-    <div class="viewer">
-      <iframe
-        title="Lecture 07 Attention PDF"
-        src="lecture-07-attention.pdf"
-      ></iframe>
+  <div class="wrap">
+    <p class="eyebrow">Study notes showcase</p>
+    <h1>Deep Learning Notes</h1>
+    <p class="lede">
+      A growing collection of ground-up notes with more detail, intuition, and
+      simple worked examples — written so readers who want a simpler path can
+      build understanding from first principles. Formation of these notes
+      borrows heavily from the
+      <a href="https://r-three.github.io/deep-learning-lecture-notes/">original course website (CSC2516)</a>.
+    </p>
+    <div class="layout">
+      <section class="card">
+        <p class="menu-title">Featured note</p>
+        <h2>07 · Attention &amp; Self-Attention</h2>
+        <p>
+          Associative memory, soft 1-NN, sequence-to-sequence with attention,
+          a full self-attention toy walk-through, path length, position
+          encodings, multi-headed attention, and attention pooling in a small
+          end-to-end network. Rendered from the LaTeX source (not a PDF embed).
+        </p>
+        <a class="btn" href="./notes/07-attention/">Open the note</a>
+      </section>
+      <aside class="card">
+        <p class="menu-title">All notes</p>
+        <ul class="menu">
+          <li>
+            <a href="./notes/07-attention/">07 · Attention &amp; Self-Attention
+              <small>Published · first note in this showcase</small>
+            </a>
+          </li>
+          <li><span class="upcoming">08 · Transformers <small>Upcoming</small></span></li>
+          <li><span class="upcoming">06 · Sequences &amp; RNNs <small>Upcoming</small></span></li>
+          <li><span class="upcoming">05 · CNNs &amp; Residuals <small>Upcoming</small></span></li>
+          <li><span class="upcoming">04 · Gradient Methods <small>Upcoming</small></span></li>
+          <li><span class="upcoming">03 · Regularization &amp; Autodiff <small>Upcoming</small></span></li>
+          <li><span class="upcoming">02 · MLPs &amp; Backprop <small>Upcoming</small></span></li>
+          <li><span class="upcoming">01 · Linear &amp; Logistic Regression <small>Upcoming</small></span></li>
+        </ul>
+      </aside>
     </div>
     <footer>
-      Source:
-      <a href="lecture-07-attention.tex">lecture-07-attention.tex</a>
-      · Repo:
+      Source repo:
       <a href="https://github.com/jerryyao-uofc/deep-learning-notes">jerryyao-uofc/deep-learning-notes</a>
-      · Inspired by
-      <a href="https://r-three.github.io/deep-learning-lecture-notes/">CSC2516 lecture notes</a>
+      · Site:
+      <a href="https://jerryyao-uofc.github.io/deep-learning-notes/">jerryyao-uofc.github.io/deep-learning-notes</a>
     </footer>
-  </main>
+  </div>
 </body>
 </html>

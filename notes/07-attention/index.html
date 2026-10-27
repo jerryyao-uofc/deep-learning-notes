@@ -1,0 +1,2346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lecture 7 Study Notes: Attention and Self-Attention · Deep Learning Notes</title>
+  <meta name="description" content="Ground-up study notes on attention and self-attention, with intuition and simple worked examples." />
+  <script>
+    MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  <style>
+:root {
+  --bg: #f7f4ef;
+  --ink: #1c1b19;
+  --muted: #5c574f;
+  --line: #d9d2c5;
+  --card: #fffdf9;
+  --accent: #0f4c5c;
+  --accent-soft: #e7f0f2;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at top left, #efe8db 0%, transparent 42%),
+    linear-gradient(180deg, var(--bg), #efe9df);
+  line-height: 1.6;
+}
+a { color: var(--accent); }
+.site-shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: rgba(255,253,249,0.92);
+  padding: 1.5rem 1.1rem;
+  position: sticky; top: 0; height: 100vh; overflow: auto;
+}
+.brand {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 0.35rem;
+}
+.sidebar h1 {
+  font-size: 1.15rem; margin: 0 0 0.75rem; font-weight: 600; line-height: 1.25;
+}
+.sidebar p { font-size: 0.92rem; color: var(--muted); margin: 0 0 1.25rem; }
+.nav-label {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 0.5rem;
+}
+.note-list { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+.note-list li { margin: 0 0 0.35rem; }
+.note-list a, .note-list span {
+  display: block; text-decoration: none; color: var(--ink);
+  border: 1px solid transparent; border-radius: 10px; padding: 0.55rem 0.65rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.9rem;
+}
+.note-list a:hover { background: var(--accent-soft); }
+.note-list a.active { background: var(--accent-soft); border-color: #b7d0d6; }
+.note-list .upcoming { color: var(--muted); opacity: 0.85; }
+.note-list small { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 0.15rem; }
+.credit { font-size: 0.8rem; color: var(--muted); }
+.content { padding: 1.75rem 1.5rem 3rem; max-width: 52rem; }
+.topbar {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+  margin-bottom: 1.25rem;
+}
+.btn {
+  display: inline-block; text-decoration: none; border: 1px solid var(--ink);
+  background: var(--ink); color: #fff !important; padding: 0.45rem 0.85rem;
+  border-radius: 999px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem;
+}
+.btn.secondary { background: transparent; color: var(--ink) !important; }
+.article h1.title { font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.2; margin: 0 0 0.5rem; }
+.article .author { color: var(--muted); margin: 0 0 1.25rem; font-size: 0.95rem; }
+.article h1, .article h2, .article h3 { line-height: 1.25; }
+.article h2 { margin-top: 2rem; border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; }
+.article table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.95rem; }
+.article th, .article td { border: 1px solid var(--line); padding: 0.4rem 0.55rem; vertical-align: top; }
+.article pre, .source-panel pre {
+  background: #1e1e1e; color: #f5f5f5; padding: 1rem; border-radius: 10px;
+  overflow: auto; font-size: 0.78rem; line-height: 1.45;
+}
+.article code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+.source-panel {
+  margin-top: 2.5rem; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--card); overflow: hidden;
+}
+.source-panel summary {
+  cursor: pointer; padding: 0.9rem 1rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 600;
+  background: #f3efe7;
+}
+.source-panel .inner { padding: 0 1rem 1rem; }
+#TOC { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0.85rem 1rem; margin: 1rem 0 1.5rem; }
+#TOC ul { padding-left: 1.2rem; }
+@media (max-width: 900px) {
+  .site-shell { grid-template-columns: 1fr; }
+  .sidebar { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+  <div class="site-shell">
+    
+<aside class="sidebar">
+  <p class="brand">Deep Learning Notes</p>
+  <h1>Study notes showcase</h1>
+  <p>Extra detail, intuition, and simple examples — written to be easier to follow from the ground up.</p>
+  <p class="nav-label">Notes</p>
+  <ul class="note-list">
+    <li>
+      <a class="active" href="./index.html">07 · Attention &amp; Self-Attention
+        <small>Published</small>
+      </a>
+    </li>
+    <li><span class="upcoming">08 · Transformers <small>Upcoming</small></span></li>
+    <li><span class="upcoming">06 · Sequences &amp; RNNs <small>Upcoming</small></span></li>
+    <li><span class="upcoming">05 · CNNs &amp; Residuals <small>Upcoming</small></span></li>
+    <li><span class="upcoming">04 · Gradient Methods <small>Upcoming</small></span></li>
+  </ul>
+  <p class="credit">
+    Formation of these notes borrows heavily from the
+    <a href="https://r-three.github.io/deep-learning-lecture-notes/">original course website (CSC2516)</a>.
+  </p>
+  <p class="credit" style="margin-top:0.75rem">
+    <a href="../../index.html">← All notes home</a>
+  </p>
+</aside>
+
+    <main class="content">
+      <div class="topbar">
+        <a class="btn secondary" href="../../index.html">Notes home</a>
+        <a class="btn secondary" href="./lecture-07-attention.tex">Download .tex</a>
+        <a class="btn secondary" href="https://github.com/jerryyao-uofc/deep-learning-notes">GitHub</a>
+      </div>
+      <article class="article">
+        <header id="title-block-header">
+<h1 class="title">Lecture 7 Study Notes:<br />
+Attention and Self-Attention</h1>
+<p class="author">Deep Learning Notes<br />
+Ground-up intuitions and worked examples<br />
+Formation borrows heavily from the <a
+href="https://r-three.github.io/deep-learning-lecture-notes/">original
+course website (CSC2516)</a></p>
+<div class="abstract">
+<div class="abstract-title">Abstract</div>
+<p>These notes develop <strong>attention</strong> from first
+principles—with extra detail, intuition, and simple numerical
+examples—so the ideas are easier to follow from the ground up. Attention
+is introduced as an associative memory, as a soft one-nearest-neighbor
+classifier, and as the mechanism that fixes the information bottleneck
+in sequence-to-sequence models. The notes then specialize to
+<strong>self-attention</strong> (the core of the transformer), including
+path length, a fully worked toy example, position encodings, and
+multi-headed attention. A final section shows <strong>attention
+pooling</strong> inside a small end-to-end network that maps a
+variable-length sequence to a scalar prediction. Content formation
+borrows heavily from the original <a
+href="https://r-three.github.io/deep-learning-lecture-notes/">original
+course website (CSC2516)</a>.</p>
+</div>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#attention-as-an-associative-memory"
+id="toc-attention-as-an-associative-memory">Attention as an Associative
+Memory</a></li>
+<li><a href="#a-soft-one-nearest-neighbor-classifier"
+id="toc-a-soft-one-nearest-neighbor-classifier">A Soft
+One-Nearest-Neighbor Classifier</a></li>
+<li><a href="#sequence-to-sequence-with-attention"
+id="toc-sequence-to-sequence-with-attention">Sequence-to-Sequence with
+Attention</a>
+<ul>
+<li><a href="#the-information-bottleneck"
+id="toc-the-information-bottleneck">The information bottleneck</a></li>
+<li><a href="#per-step-context-via-attention-bahdanau-et-al.-2015"
+id="toc-per-step-context-via-attention-bahdanau-et-al.-2015">Per-step
+context via attention (Bahdanau et al., 2015)</a></li>
+<li><a href="#where-attention-sits-in-the-encoderdecoder"
+id="toc-where-attention-sits-in-the-encoderdecoder">Where attention sits
+in the encoder–decoder</a></li>
+</ul></li>
+<li><a href="#worked-self-attention-a-tiny-numerical-walk-through"
+id="toc-worked-self-attention-a-tiny-numerical-walk-through">Worked
+Self-Attention: A Tiny Numerical Walk-Through</a></li>
+<li><a href="#baby-toy-example-the-ingredients"
+id="toc-baby-toy-example-the-ingredients">Baby Toy Example: The
+Ingredients</a>
+<ul>
+<li><a href="#inputs" id="toc-inputs">Inputs</a></li>
+<li><a href="#weight-matrices" id="toc-weight-matrices">Weight
+matrices</a></li>
+<li><a href="#queries-keys-and-values"
+id="toc-queries-keys-and-values">Queries, keys, and values</a></li>
+</ul></li>
+<li><a href="#step-1-scaled-attention-scores"
+id="toc-step-1-scaled-attention-scores">Step 1: Scaled Attention
+Scores</a></li>
+<li><a href="#step-2-softmax-where-should-i-look"
+id="toc-step-2-softmax-where-should-i-look">Step 2: Softmax — “Where
+Should I Look?”</a></li>
+<li><a href="#step-3-weighted-sum-of-values-what-should-i-read"
+id="toc-step-3-weighted-sum-of-values-what-should-i-read">Step 3:
+Weighted Sum of Values — “What Should I Read?”</a>
+<ul>
+<li><a href="#intuition" id="toc-intuition">Intuition</a></li>
+<li><a href="#numbers-for-the-toy" id="toc-numbers-for-the-toy">Numbers
+for the toy</a></li>
+</ul></li>
+<li><a href="#putting-it-together-length-t-in-to-length-t-out"
+id="toc-putting-it-together-length-t-in-to-length-t-out">Putting It
+Together: Length <span class="math inline">\(T\)</span> In <span
+class="math inline">\(\to\)</span> Length <span
+class="math inline">\(T\)</span> Out</a></li>
+<li><a href="#self-attention-formal-view-and-path-length"
+id="toc-self-attention-formal-view-and-path-length">Self-Attention
+(Formal View and Path Length)</a>
+<ul>
+<li><a href="#definition" id="toc-definition">Definition</a></li>
+<li><a href="#path-length" id="toc-path-length">Path length</a></li>
+</ul></li>
+<li><a href="#position-encoding-why-self-attention-needs-order"
+id="toc-position-encoding-why-self-attention-needs-order">Position
+Encoding: Why Self-Attention Needs Order</a>
+<ul>
+<li><a href="#shared-baby-setup" id="toc-shared-baby-setup">Shared baby
+setup</a></li>
+<li><a href="#absolute-position-embeddings-early-approach"
+id="toc-absolute-position-embeddings-early-approach">Absolute position
+embeddings (early approach)</a></li>
+<li><a href="#method-i-relative-vector-on-the-key"
+id="toc-method-i-relative-vector-on-the-key">Method (i): Relative vector
+on the key</a></li>
+<li><a href="#method-ii-relative-scalar-bias"
+id="toc-method-ii-relative-scalar-bias">Method (ii): Relative scalar
+bias</a></li>
+<li><a href="#method-iii-rope-rotary-position-encoding"
+id="toc-method-iii-rope-rotary-position-encoding">Method (iii): RoPE
+(rotary position encoding)</a></li>
+<li><a href="#how-position-encoding-preserves-sequence-order"
+id="toc-how-position-encoding-preserves-sequence-order">How position
+encoding preserves sequence order</a></li>
+</ul></li>
+<li><a href="#multi-headed-self-attention"
+id="toc-multi-headed-self-attention">Multi-Headed Self-Attention</a>
+<ul>
+<li><a href="#intuition-what-a-head-is-and-is-not"
+id="toc-intuition-what-a-head-is-and-is-not">Intuition: what a head is
+(and is not)</a></li>
+<li><a href="#definition-same-notation"
+id="toc-definition-same-notation">Definition (same notation)</a></li>
+<li><a href="#baby-example-setup" id="toc-baby-example-setup">Baby
+example: setup</a></li>
+<li><a href="#step-a-head-1-does-ordinary-self-attention"
+id="toc-step-a-head-1-does-ordinary-self-attention">Step A — Head 1 does
+ordinary self-attention</a></li>
+<li><a href="#step-b-head-2-same-mathbfx-different-weights"
+id="toc-step-b-head-2-same-mathbfx-different-weights">Step B — Head 2,
+same <span class="math inline">\(\mathbf{x}\)</span>, different
+weights</a></li>
+<li><a href="#step-c-stack-heads-and-mix-with-mathbfw_o"
+id="toc-step-c-stack-heads-and-mix-with-mathbfw_o">Step C — Stack heads
+and mix with <span class="math inline">\(\mathbf{W}_O\)</span></a></li>
+<li><a href="#single-head-vs.-multi-head"
+id="toc-single-head-vs.-multi-head">Single-head vs. multi-head</a></li>
+<li><a href="#summary-of-the-baby-walk-through"
+id="toc-summary-of-the-baby-walk-through">Summary of the baby
+walk-through</a></li>
+</ul></li>
+<li><a href="#attention-pooling-in-a-full-network"
+id="toc-attention-pooling-in-a-full-network">Attention Pooling in a Full
+Network</a>
+<ul>
+<li><a href="#pooling-vs.-self-attention"
+id="toc-pooling-vs.-self-attention">Pooling vs. self-attention</a></li>
+<li><a href="#demonstrated-example-selective-marked-sum"
+id="toc-demonstrated-example-selective-marked-sum">Demonstrated example:
+selective marked sum</a></li>
+<li><a href="#where-attention-sits-in-the-network"
+id="toc-where-attention-sits-in-the-network">Where attention sits in the
+network</a></li>
+<li><a href="#score-functions-pooling-form"
+id="toc-score-functions-pooling-form">Score functions (pooling
+form)</a></li>
+<li><a href="#padding-and-attention-masks"
+id="toc-padding-and-attention-masks">Padding and attention
+masks</a></li>
+<li><a href="#training-loop-in-brief"
+id="toc-training-loop-in-brief">Training loop in brief</a></li>
+<li><a href="#pseudocode-overview"
+id="toc-pseudocode-overview">Pseudocode overview</a></li>
+<li><a href="#takeaways" id="toc-takeaways">Takeaways</a></li>
+</ul></li>
+<li><a href="#cheat-sheet" id="toc-cheat-sheet">Cheat Sheet</a></li>
+<li><a href="#references" id="toc-references">References</a></li>
+</ul>
+</nav>
+<h1 id="attention-as-an-associative-memory">Attention as an Associative
+Memory</h1>
+<p>Attention is usefully viewed as the neural-network version of an
+<em>associative memory</em>, or key–value store. To build one, fix five
+ingredients:</p>
+<ol>
+<li><p>a <strong>query</strong> — the identifier of what we want to
+retrieve;</p></li>
+<li><p>a set of <strong>keys</strong> — identifiers attached to stored
+items;</p></li>
+<li><p>a set of <strong>values</strong> — one payload per key;</p></li>
+<li><p>a <strong>comparison</strong> function that scores the query
+against each key;</p></li>
+<li><p>a <strong>reduction</strong> function that combines the values
+according to those scores.</p></li>
+</ol>
+<p><strong>Definition.</strong> An attention mechanism is completely
+specified by these five ingredients. Comparison produces a vector of
+scores <span class="math inline">\(\mathbf{a}\)</span>; reduction maps
+<span
+class="math inline">\(\{\mathbf{v}_1,\ldots,\mathbf{v}_N\}\)</span> and
+<span class="math inline">\(\mathbf{a}\)</span> to a single vector in
+<span class="math inline">\(\mathbb{R}^{d_v}\)</span>.</p>
+<h4 id="python-dictionary-hard-attention.">Python dictionary (hard
+attention).</h4>
+<p>A dictionary compares by equality (in practice, hashing) and returns
+the unique matching value. That assignment is hard and
+non-differentiable, so it cannot sit inside a network trained by
+gradient descent. The rest of these notes softens the same idea: replace
+exact match with a continuous score, and replace hard selection with a
+weighted average.</p>
+<h4 id="notation.">Notation.</h4>
+<p>Keys <span
+class="math inline">\(\mathbf{k}_i\in\mathbb{R}^{d_k}\)</span>, query
+<span class="math inline">\(\mathbf{q}\in\mathbb{R}^{d_q}\)</span>
+(often <span class="math inline">\(d_q=d_k\)</span>), values <span
+class="math inline">\(\mathbf{v}_i\in\mathbb{R}^{d_v}\)</span>. Scores
+<span
+class="math inline">\(a_i=\alpha(\mathbf{q},\mathbf{k}_i)\)</span>.
+Attention acts on a <em>set</em>: shuffling key–value pairs together
+leaves the result unchanged (permutation invariance). That property will
+matter when we apply attention to sequences.</p>
+<p><strong>One-line intuition (kept throughout).</strong> Comparison
+chooses <em>where</em> to look; reduction copies <em>what</em> to
+read.</p>
+<h1 id="a-soft-one-nearest-neighbor-classifier">A Soft
+One-Nearest-Neighbor Classifier</h1>
+<p>A one-nearest-neighbor (1-NN) classifier is rarely introduced as
+attention, but it uses the same five ingredients and makes the soft
+version easy to see.</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Ingredient</th>
+<th style="text-align: left;">1-NN reading</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Query</td>
+<td style="text-align: left;">the test point <span
+class="math inline">\(\mathbf{q}\)</span> to classify</td>
+</tr>
+<tr>
+<td style="text-align: left;">Keys</td>
+<td style="text-align: left;">training inputs <span
+class="math inline">\(\mathbf{k}_i=\mathbf{x}^{(i)}\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">Values</td>
+<td style="text-align: left;">training labels <span
+class="math inline">\(v_i=t^{(i)}\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">Comparison</td>
+<td style="text-align: left;">negated distance <span
+class="math inline">\(\alpha(\mathbf{q},\mathbf{k}_i)=-\lVert\mathbf{q}-\mathbf{k}_i\rVert\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">Reduction (hard)</td>
+<td style="text-align: left;"><span
+class="math inline">\(\operatorname{argmax}(\mathbf{a})\cdot V\)</span>
+(label of the closest point)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Negating distance turns “closest” into “largest score,” so <span
+class="math inline">\(\operatorname{argmax}\)</span> selects the nearest
+neighbor. Hard <span
+class="math inline">\(\operatorname{argmax}\)</span> has derivative zero
+almost everywhere, so it is not usable inside a trained network.</p>
+<h4 id="softening.">Softening.</h4>
+<p>Replace <span class="math inline">\(\operatorname{argmax}\)</span> by
+<span class="math inline">\(\operatorname{softmax}\)</span>: <span
+class="math display">\[f(\{\mathbf{v}_1,\ldots,\mathbf{v}_N\},\mathbf{a})
+  =
+  \operatorname{softmax}(\mathbf{a})\cdot V.\]</span> The result is no
+longer strictly 1-NN: it averages nearby labels in proportion to
+closeness. Neural attention mechanisms look like this soft 1-NN, with a
+different comparison function and with values that need not be class
+labels.</p>
+<blockquote>
+<p><em>Exam / interview note.</em> Framing 1-NN as attention is a common
+conceptual check: the five ingredients, then soft <span
+class="math inline">\(\operatorname{argmax}\)</span> via softmax.</p>
+</blockquote>
+<h1 id="sequence-to-sequence-with-attention">Sequence-to-Sequence with
+Attention</h1>
+<p>Attention first became widespread in neural networks inside
+<em>sequence-to-sequence</em> (seq2seq) models, so we briefly revisit
+the encoder–decoder RNN before leaving recurrence behind.</p>
+<h2 id="the-information-bottleneck">The information bottleneck</h2>
+<p>Without attention, an encoder RNN consumes the input <span
+class="math inline">\(x_1,\ldots,x_T\)</span> and summarizes it with a
+single fixed context <span
+class="math inline">\(\mathbf{c}=\mathbf{h}_T\)</span> (the last encoder
+state). A decoder RNN is initialized from <span
+class="math inline">\(\mathbf{c}\)</span> and emits the output sequence.
+For long inputs this is a bottleneck: every relevant detail must be
+compressed into one fixed-length vector, and every decoder step must
+rely on that same summary—even when the next output word depends on only
+one source word.</p>
+<h4 id="translation-intuition.">Translation intuition.</h4>
+<p>English “the cat sat on the mat” <span
+class="math inline">\(\to\)</span> French “le chat s’est assis sur le
+tapis.” Producing <em>tapis</em> mainly needs <em>mat</em>, not the
+whole sentence. A single <span
+class="math inline">\(\mathbf{c}=\mathbf{h}_T\)</span> cannot specialize
+per output step.</p>
+<h2 id="per-step-context-via-attention-bahdanau-et-al.-2015">Per-step
+context via attention (Bahdanau et al., 2015)</h2>
+<p>Compute a fresh context <span
+class="math inline">\(\mathbf{c}_{t&#39;}\)</span> at each decoder step
+<span class="math inline">\(t&#39;\)</span>, focused on the source
+positions relevant to the word about to be written. Fill in the five
+ingredients:</p>
+<ul>
+<li><p><strong>Query:</strong> previous decoder state <span
+class="math inline">\(\mathbf{s}_{t&#39;-1}\)</span> (cannot use <span
+class="math inline">\(\mathbf{s}_{t&#39;}\)</span>, which will depend on
+<span class="math inline">\(\mathbf{c}_{t&#39;}\)</span>);</p></li>
+<li><p><strong>Keys and values:</strong> encoder states <span
+class="math inline">\(\mathbf{h}_1,\ldots,\mathbf{h}_T\)</span>;</p></li>
+<li><p><strong>Comparison:</strong> a small MLP (encoder and decoder
+live in different spaces), <span class="math display">\[a_t
+          =
+          \mathbf{w}_v^\top
+          \tanh\!\bigl(\mathbf{W}_q\mathbf{s}_{t&#39;-1}
+          + \mathbf{W}_k\mathbf{h}_t\bigr);\]</span></p></li>
+<li><p><strong>Reduction:</strong> softmax-weighted average <span
+class="math display">\[\mathbf{c}_{t&#39;}
+          =
+          \sum_{t=1}^{T}\alpha_t\,\mathbf{h}_t,
+          \qquad
+          \boldsymbol{\alpha}=\operatorname{softmax}(\mathbf{a}).\]</span></p></li>
+</ul>
+<p>The decoder then consumes the context at every step, <span
+class="math display">\[\mathbf{s}_{t&#39;}
+  =
+  g\bigl(\mathbf{s}_{t&#39;-1},\, y_{t&#39;-1},\,
+\mathbf{c}_{t&#39;}\bigr),\]</span> e.g. by concatenating <span
+class="math inline">\(\mathbf{c}_{t&#39;}\)</span> with the previous
+output embedding. Information about the input is no longer forced
+through a single vector; each output step re-selects what to read.</p>
+<h2 id="where-attention-sits-in-the-encoderdecoder">Where attention sits
+in the encoder–decoder</h2>
+<p>Figure <a href="#fig:seq2seq-attn" data-reference-type="ref"
+data-reference="fig:seq2seq-attn">1</a> places the attention block
+between the encoder states (keys/values) and the decoder (query).
+Softmax chooses <em>where</em> among <span
+class="math inline">\(h_1,\ldots,h_T\)</span> to look; the weighted sum
+builds the context that the decoder reads.</p>
+<figure id="fig:seq2seq-attn" data-latex-placement="ht">
+
+<figcaption>RNN encoder–decoder with attention. The encoder produces
+states <span class="math inline">\(h_1,\ldots,h_T\)</span>. At decoder
+step <span class="math inline">\(t&#39;\)</span>, attention scores the
+previous decoder state against every encoder state, softmax-normalizes,
+and forms context <span class="math inline">\(c_{t&#39;}\)</span>.
+Without attention, a single <span class="math inline">\(c=h_T\)</span>
+would replace this whole block.</figcaption>
+</figure>
+<p>Clock convention used below: primed index <span
+class="math inline">\(t&#39;\)</span> is the <em>decoder / output</em>
+clock; unprimed <span class="math inline">\(t\)</span> is the
+<em>encoder / source</em> clock. Encoder states stay fixed; the
+attention weights change with <span
+class="math inline">\(t&#39;\)</span>.</p>
+<h1 id="worked-self-attention-a-tiny-numerical-walk-through">Worked
+Self-Attention: A Tiny Numerical Walk-Through</h1>
+<p>Seq2seq attention works, but the mechanism that dominates modern
+models is <strong>self-attention</strong>: queries, keys, and values all
+come from the <em>same</em> sequence. The layer still maps a
+length-<span class="math inline">\(T\)</span> sequence to a length-<span
+class="math inline">\(T\)</span> sequence (like an RNN layer), but
+without recurrence.</p>
+<p>The next several sections compute one self-attention layer by hand
+with tiny matrices, so every score and weight is visible. After that
+walk-through we return to a compact formal statement of self-attention
+and to <em>path length</em>—why this rewrite is attractive compared with
+convolution and recurrence—and then to position encodings and
+multi-headed attention.</p>
+<h1 id="baby-toy-example-the-ingredients">Baby Toy Example: The
+Ingredients</h1>
+<p>We use deliberately tiny dimensions so every matrix can be written
+out.</p>
+<h2 id="inputs">Inputs</h2>
+<p>Sequence length <span class="math inline">\(T=3\)</span>, embedding
+size <span class="math inline">\(m=2\)</span>: <span
+class="math display">\[x_1 = \begin{bmatrix}1\\0\end{bmatrix},\quad
+  x_2 = \begin{bmatrix}0\\1\end{bmatrix},\quad
+  x_3 = \begin{bmatrix}1\\1\end{bmatrix}.\]</span> Think of these as
+embeddings of three tokens, e.g. “the”, “cat”, “sat”. Stacked as a
+matrix <span class="math inline">\(X \in \mathbb{R}^{T \times
+m}\)</span>: <span class="math display">\[X =
+  \begin{bmatrix}
+    1 &amp; 0 \\
+    0 &amp; 1 \\
+    1 &amp; 1
+  \end{bmatrix}.\]</span></p>
+<h2 id="weight-matrices">Weight matrices</h2>
+<p>Choose <span class="math inline">\(d_k = d_v = 2\)</span>. Pick
+simple numbers (in a real model these are learned): <span
+class="math display">\[W_Q =
+\begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix},\quad
+  W_K = \begin{bmatrix}1&amp;1\\0&amp;1\end{bmatrix},\quad
+  W_V = \begin{bmatrix}1&amp;0\\1&amp;1\end{bmatrix}.\]</span> All three
+are <span class="math inline">\(2\times 2\)</span> because <span
+class="math inline">\(m=d_k=d_v=2\)</span>.</p>
+<h2 id="queries-keys-and-values">Queries, keys, and values</h2>
+<p>For one token, e.g. <span class="math inline">\(x_1\)</span>: <span
+class="math display">\[\begin{align*}
+  q_1 &amp;= W_Q x_1 =
+\begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}\begin{bmatrix}1\\0\end{bmatrix}
+       = \begin{bmatrix}1\\0\end{bmatrix}, \\
+  k_1 &amp;= W_K x_1 =
+\begin{bmatrix}1&amp;1\\0&amp;1\end{bmatrix}\begin{bmatrix}1\\0\end{bmatrix}
+       = \begin{bmatrix}1\\0\end{bmatrix}, \\
+  v_1 &amp;= W_V x_1 =
+\begin{bmatrix}1&amp;0\\1&amp;1\end{bmatrix}\begin{bmatrix}1\\0\end{bmatrix}
+       = \begin{bmatrix}1\\1\end{bmatrix}.
+\end{align*}\]</span> Doing this for every token:</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">token</th>
+<th style="text-align: center;"><span
+class="math inline">\(q_t\)</span></th>
+<th style="text-align: center;"><span
+class="math inline">\(k_t\)</span></th>
+<th style="text-align: center;"><span
+class="math inline">\(v_t\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><span
+class="math inline">\(x_1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}1\\0\end{bmatrix}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}1\\0\end{bmatrix}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}1\\1\end{bmatrix}\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;"><span
+class="math inline">\(x_2\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}0\\1\end{bmatrix}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}1\\1\end{bmatrix}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}0\\1\end{bmatrix}\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;"><span
+class="math inline">\(x_3\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}1\\1\end{bmatrix}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}2\\1\end{bmatrix}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}1\\2\end{bmatrix}\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Where do <span class="math inline">\(v_1,v_2,v_3\)</span>
+come from?</strong> Each is just <span class="math inline">\(v_t = W_V
+x_t\)</span>. Same idea as queries and keys, different matrix. The big
+value matrix <span class="math inline">\(V\)</span> is those vectors
+stacked as rows: <span class="math display">\[V =
+  \begin{bmatrix}
+    \text{---}\, v_1^\top\, \text{---} \\
+    \text{---}\, v_2^\top\, \text{---} \\
+    \text{---}\, v_3^\top\, \text{---}
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+    1 &amp; 1 \\
+    0 &amp; 1 \\
+    1 &amp; 2
+  \end{bmatrix}
+  \in \mathbb{R}^{T \times d_v}
+  = \mathbb{R}^{3\times 2}.\]</span> Analogously one can form <span
+class="math inline">\(Q\)</span> and <span
+class="math inline">\(K\)</span> by stacking the <span
+class="math inline">\(q_t^\top\)</span> and <span
+class="math inline">\(k_t^\top\)</span> as rows.</p>
+<h1 id="step-1-scaled-attention-scores">Step 1: Scaled Attention
+Scores</h1>
+<p>For each query, score every key with a <strong>scaled</strong> dot
+product: <span class="math display">\[s_{tj}
+  =
+  \frac{q_t^\top k_j}{\sqrt{d_k}}.\]</span> Here <span
+class="math inline">\(d_k=2\)</span>, so <span
+class="math inline">\(\sqrt{d_k}=\sqrt{2}\approx 1.414\)</span>.</p>
+<h4 id="token-1-q_1.">Token 1 (<span
+class="math inline">\(q_1\)</span>).</h4>
+<p><span class="math display">\[\begin{align*}
+  q_1^\top k_1 &amp;= 1 &amp;\Rightarrow\quad s_{11} &amp;=
+\tfrac{1}{\sqrt{2}} \approx 0.707, \\
+  q_1^\top k_2 &amp;= 1 &amp;\Rightarrow\quad s_{12} &amp;=
+\tfrac{1}{\sqrt{2}} \approx 0.707, \\
+  q_1^\top k_3 &amp;= 2 &amp;\Rightarrow\quad s_{13} &amp;=
+\tfrac{2}{\sqrt{2}} = \sqrt{2} \approx 1.414.
+\end{align*}\]</span></p>
+<h4 id="token-2-q_2.">Token 2 (<span
+class="math inline">\(q_2\)</span>).</h4>
+<p><span class="math display">\[\begin{align*}
+  q_2^\top k_1 &amp;= 0 &amp;\Rightarrow\quad s_{21} = 0, \\
+  q_2^\top k_2 &amp;= 1 &amp;\Rightarrow\quad s_{22} =
+\tfrac{1}{\sqrt{2}} \approx 0.707, \\
+  q_2^\top k_3 &amp;= 1 &amp;\Rightarrow\quad s_{23} =
+\tfrac{1}{\sqrt{2}} \approx 0.707.
+\end{align*}\]</span></p>
+<h4 id="token-3-q_3.">Token 3 (<span
+class="math inline">\(q_3\)</span>).</h4>
+<p><span class="math display">\[\begin{align*}
+  q_3^\top k_1 &amp;= 1 &amp;\Rightarrow\quad s_{31} =
+\tfrac{1}{\sqrt{2}} \approx 0.707, \\
+  q_3^\top k_2 &amp;= 2 &amp;\Rightarrow\quad s_{32} = \sqrt{2} \approx
+1.414, \\
+  q_3^\top k_3 &amp;= 3 &amp;\Rightarrow\quad s_{33} =
+\tfrac{3}{\sqrt{2}} \approx 2.121.
+\end{align*}\]</span></p>
+<p>Scaled score matrix (row <span class="math inline">\(t\)</span> =
+scores for query <span class="math inline">\(t\)</span>): <span
+class="math display">\[S
+  =
+  \frac{QK^\top}{\sqrt{d_k}}
+  \approx
+  \begin{bmatrix}
+    0.707 &amp; 0.707 &amp; 1.414 \\
+    0.000 &amp; 0.707 &amp; 0.707 \\
+    0.707 &amp; 1.414 &amp; 2.121
+  \end{bmatrix}.\]</span> Shape: <span class="math inline">\(T\times
+T\)</span>. Every token looks at every token.</p>
+<p><strong>Why divide by <span
+class="math inline">\(\sqrt{d_k}\)</span>?</strong> Raw dot products
+grow with dimension. Scaling keeps the values fed into softmax from
+becoming extremely large, which would make the attention weights too
+peaked (nearly one-hot) and hard to train.</p>
+<h1 id="step-2-softmax-where-should-i-look">Step 2: Softmax — “Where
+Should I Look?”</h1>
+<p>Turn each row of <span class="math inline">\(S\)</span> into weights
+that sum to <span class="math inline">\(1\)</span>: <span
+class="math display">\[A_{tj}
+  =
+  \frac{\exp(s_{tj})}{\sum_{j&#39;=1}^{T}\exp(s_{tj&#39;})}.\]</span></p>
+<p><span class="math display">\[\begin{align*}
+  \alpha_1 &amp;= \mathrm{softmax}([0.707,\,0.707,\,1.414])
+           \approx [0.248,\,0.248,\,0.503], \\
+  \alpha_2 &amp;= \mathrm{softmax}([0.000,\,0.707,\,0.707])
+           \approx [0.198,\,0.401,\,0.401], \\
+  \alpha_3 &amp;= \mathrm{softmax}([0.707,\,1.414,\,2.121])
+           \approx [0.140,\,0.284,\,0.576].
+\end{align*}\]</span></p>
+<p>Attention weight matrix: <span class="math display">\[A \approx
+  \begin{bmatrix}
+    0.248 &amp; 0.248 &amp; 0.503 \\
+    0.198 &amp; 0.401 &amp; 0.401 \\
+    0.140 &amp; 0.284 &amp; 0.576
+  \end{bmatrix}.\]</span> Each row sums to <span
+class="math inline">\(1\)</span>. Entry <span
+class="math inline">\(A_{tj}\)</span> means: <em>how much does token
+<span class="math inline">\(t\)</span> listen to token <span
+class="math inline">\(j\)</span>?</em></p>
+<p>Softmax alone only gives a ranking / allocation of attention. It does
+not yet move any content.</p>
+<h1 id="step-3-weighted-sum-of-values-what-should-i-read">Step 3:
+Weighted Sum of Values — “What Should I Read?”</h1>
+<p>This is the <strong>retrieval</strong> step: <span
+class="math display">\[y_t = \sum_{j=1}^{T} A_{tj}\, v_j
+  \qquad\text{or, in matrix form,}\qquad
+  Y = AV.\]</span></p>
+<h2 id="intuition">Intuition</h2>
+<ul>
+<li><p><span class="math inline">\(A\)</span> answers <em>where</em> to
+look (percentages).</p></li>
+<li><p><span class="math inline">\(V\)</span> holds the <em>content</em>
+you might copy (after <span
+class="math inline">\(W_V\)</span>).</p></li>
+<li><p><span class="math inline">\(y_t = \sum_j A_{tj} v_j\)</span>
+builds a new vector as a blend of everyone’s values, with more weight on
+the tokens that matched the query strongly.</p></li>
+</ul>
+<p>Without multiplying by <span class="math inline">\(V\)</span>,
+attention would only give you a ranking. With it, you get a new
+representation that actually contains information from the useful
+tokens.</p>
+<h4 id="concrete-reading-of-token-1.">Concrete reading of token 1.</h4>
+<p>Weights <span class="math inline">\(\alpha_1 \approx
+[0.25,\,0.25,\,0.50]\)</span> say: “listen a little to token 1, a little
+to token 2, and about half to token 3.” Then <span
+class="math display">\[y_1 \approx 0.25\,v_1 + 0.25\,v_2 +
+0.50\,v_3\]</span> is mostly like <span
+class="math inline">\(v_3\)</span>, with some <span
+class="math inline">\(v_1\)</span> and <span
+class="math inline">\(v_2\)</span> mixed in. Token 1’s new vector is
+rewritten using content from the tokens its query matched.</p>
+<h4 id="why-this-matters.">Why this matters.</h4>
+<ol>
+<li><p><strong>Context injection.</strong> A bare embedding of “it” is
+vague. After this step, “it” can absorb value-features from “cat” if its
+query matched the key of “cat”.</p></li>
+<li><p><strong>Soft lookup.</strong> Hard selection would pick one token
+only. Softmax + weighted sum lets you grab a main token and keep a bit
+of others, and gradients flow through all of them.</p></li>
+<li><p><strong>Same length, richer meaning.</strong> You keep <span
+class="math inline">\(T\)</span> outputs, but each is no longer “just
+me”; it is “me, plus the parts of the sequence I needed.”</p></li>
+</ol>
+<h2 id="numbers-for-the-toy">Numbers for the toy</h2>
+<p><span class="math display">\[\begin{align*}
+  y_1 &amp;\approx 0.248\,v_1 + 0.248\,v_2 + 0.503\,v_3
+       \approx \begin{bmatrix}0.752\\1.503\end{bmatrix}, \\
+  y_2 &amp;\approx 0.198\,v_1 + 0.401\,v_2 + 0.401\,v_3
+       \approx \begin{bmatrix}0.599\\1.401\end{bmatrix}, \\
+  y_3 &amp;\approx 0.140\,v_1 + 0.284\,v_2 + 0.576\,v_3
+       \approx \begin{bmatrix}0.716\\1.576\end{bmatrix}.
+\end{align*}\]</span></p>
+<p>Output matrix: <span class="math display">\[Y \approx
+  \begin{bmatrix}
+    0.752 &amp; 1.503 \\
+    0.599 &amp; 1.401 \\
+    0.716 &amp; 1.576
+  \end{bmatrix}.\]</span></p>
+<h1 id="putting-it-together-length-t-in-to-length-t-out">Putting It
+Together: Length <span class="math inline">\(T\)</span> In <span
+class="math inline">\(\to\)</span> Length <span
+class="math inline">\(T\)</span> Out</h1>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Stage</th>
+<th style="text-align: left;">Object</th>
+<th style="text-align: left;">Shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">input</td>
+<td style="text-align: left;"><span
+class="math inline">\(x_1,x_2,x_3\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(T=3\)</span>
+vectors of size <span class="math inline">\(m=2\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">project</td>
+<td style="text-align: left;"><span
+class="math inline">\(Q,K,V\)</span></td>
+<td style="text-align: left;">still <span
+class="math inline">\(T\)</span> vectors each</td>
+</tr>
+<tr>
+<td style="text-align: left;">scores</td>
+<td style="text-align: left;"><span class="math inline">\(S = QK^\top /
+\sqrt{d_k}\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(T\times
+T\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">weights</td>
+<td style="text-align: left;"><span class="math inline">\(A =
+\mathrm{softmax}(S)\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(T\times
+T\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">output</td>
+<td style="text-align: left;"><span class="math inline">\(y_1,y_2,y_3 =
+AV\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(T=3\)</span>
+vectors of size <span class="math inline">\(d_v=2\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The full self-attention formula is <span
+class="math display">\[\boxed{
+    Y
+    =
+    \mathrm{Attention}(Q,K,V)
+    =
+    \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V.
+  }\]</span> You never collapse the sequence. Each position keeps its
+own output; that output is a soft mix of all values, with mix weights
+chosen by that position’s query: <span
+class="math display">\[\underbrace{(x_1,\ldots,x_T)}_{T\ \text{inputs}}
+  \;\xrightarrow{\;W_Q,W_K,W_V\;}\;
+  (Q,K,V)
+  \;\xrightarrow{\;\mathrm{softmax}(QK^\top/\sqrt{d_k})\,V\;}\;
+  \underbrace{(y_1,\ldots,y_T)}_{T\ \text{outputs}}.\]</span></p>
+<p><strong>Self-attention vs. encoder–decoder attention.</strong> In the
+encoder–decoder case, the query came from the decoder and the states
+being averaged came from the encoder. In self-attention, one sequence
+supplies <span class="math inline">\(Q\)</span>, <span
+class="math inline">\(K\)</span>, and <span
+class="math inline">\(V\)</span>, so each token can gather context from
+the rest of the <em>same</em> sentence (including itself).</p>
+<h1 id="self-attention-formal-view-and-path-length">Self-Attention
+(Formal View and Path Length)</h1>
+<p>Having worked a length-<span class="math inline">\(T\)</span> rewrite
+by hand, we collect the definition and then ask why the architecture is
+attractive.</p>
+<h2 id="definition">Definition</h2>
+<p>Seq2seq attention works, but the mechanism that dominates modern
+models is <strong>self-attention</strong>: queries, keys, and values all
+come from the <em>same</em> sequence. The layer still maps a
+length-<span class="math inline">\(T\)</span> sequence to a length-<span
+class="math inline">\(T\)</span> sequence (like an RNN layer), but
+without recurrence.</p>
+<p>Start with token vectors <span
+class="math inline">\(x_1,x_2,\ldots,x_T\in\mathbb{R}^{m}\)</span>
+(e.g. word embeddings, or outputs of a previous layer). Project every
+token with three learned matrices shared across positions: <span
+class="math display">\[\begin{align}
+  q_t &amp;= W_Q x_t, \label{eq:q} \\
+  k_t &amp;= W_K x_t, \label{eq:k} \\
+  v_t &amp;= W_V x_t. \label{eq:v}
+\end{align}\]</span></p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Vector</th>
+<th style="text-align: left;">Role</th>
+<th style="text-align: left;">Intuition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">query <span
+class="math inline">\(q_t\)</span></td>
+<td style="text-align: left;">“what am I looking for?”</td>
+<td style="text-align: left;">search request</td>
+</tr>
+<tr>
+<td style="text-align: left;">key <span
+class="math inline">\(k_t\)</span></td>
+<td style="text-align: left;">“what do I advertise?”</td>
+<td style="text-align: left;">index / label</td>
+</tr>
+<tr>
+<td style="text-align: left;">value <span
+class="math inline">\(v_t\)</span></td>
+<td style="text-align: left;">“what content do I offer?”</td>
+<td style="text-align: left;">payload to copy</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Shapes.</strong> <span
+class="math inline">\(W_Q,W_K\in\mathbb{R}^{d_k\times m}\)</span> and
+<span class="math inline">\(W_V\in\mathbb{R}^{d_v\times m}\)</span>.
+Queries and keys share dimension <span
+class="math inline">\(d_k\)</span> so a dot product is well-defined.
+Values may use a different <span class="math inline">\(d_v\)</span>.</p>
+<p>Comparison is a scaled dot product, <span
+class="math display">\[\alpha(q,k_i)=\frac{q^\top
+k_i}{\sqrt{d_k}},\]</span> and reduction is again a softmax-weighted
+average of the values. Scaling by <span
+class="math inline">\(\sqrt{d_k}\)</span> keeps score variance from
+growing with dimension (and prevents a saturated, nearly one-hot softmax
+that hurts gradients).</p>
+<p>After the projections we have three length-<span
+class="math inline">\(T\)</span> sequences—queries, keys, and values.
+Comparison is applied for each of the <span
+class="math inline">\(T\)</span> queries against all keys; reduction
+then produces one output vector per query, hence a length-<span
+class="math inline">\(T\)</span> output sequence.</p>
+<h2 id="path-length">Path length</h2>
+<p>Having seen self-attention compute a length-<span
+class="math inline">\(T\)</span> rewrite of its input, a natural
+question is why this is attractive compared with convolution or
+recurrence. Path length measures how many sequential operations are
+needed to mix information between two positions of the input—closely
+related to the idea of a receptive field. Consider a length-5 sequence
+and ask when an output can depend on both <span
+class="math inline">\(x_1\)</span> and <span
+class="math inline">\(x_5\)</span>.</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Layer</th>
+<th style="text-align: left;">Path length (<span
+class="math inline">\(x_1\leftrightarrow x_5\)</span>)</th>
+<th style="text-align: left;">Parallelism</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">1D conv (kernel <span
+class="math inline">\(3\)</span>)</td>
+<td style="text-align: left;"><span class="math inline">\(2\)</span>
+(receptive field grows by <span class="math inline">\(2\)</span> per
+layer)</td>
+<td style="text-align: left;">Positions in one layer are parallel; depth
+is sequential</td>
+</tr>
+<tr>
+<td style="text-align: left;">RNN</td>
+<td style="text-align: left;"><span class="math inline">\(5\)</span>
+(signal travels step by step)</td>
+<td style="text-align: left;">Inherently sequential along time</td>
+</tr>
+<tr>
+<td style="text-align: left;">Self-attention</td>
+<td style="text-align: left;"><span class="math inline">\(1\)</span>
+(every output mixes all inputs in one layer)</td>
+<td style="text-align: left;">All outputs computable in parallel</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>More generally, for length <span class="math inline">\(T\)</span>:
+convolution has path length <span class="math inline">\(O(T/k)\)</span>
+for kernel size <span class="math inline">\(k\)</span>; recurrence has
+path length <span class="math inline">\(O(T)\)</span>; self-attention
+has path length <span class="math inline">\(O(1)\)</span>. Short paths
+are not a guarantee that optimization will discover long-range
+dependencies, but they remove an architectural obstruction: information
+need not pass through a long chain of Jacobians.</p>
+<p>Path length also counts work that cannot be parallelized.
+Convolutional layers stack depth-wise; RNNs wait on the previous time
+step. Self-attention outputs are independent weighted averages of the
+same inputs, so the layer is a pair of large matrix multiplies—well
+matched to modern hardware: <span
+class="math display">\[S=\frac{QK^\top}{\sqrt{d_k}},
+  \qquad
+  Y=\operatorname{softmax}_{\text{row}}(S)\,V.\]</span></p>
+<h1 id="position-encoding-why-self-attention-needs-order">Position
+Encoding: Why Self-Attention Needs Order</h1>
+<p>Self-attention alone is <strong>orderless</strong>. Attention treats
+keys and values as a <em>set</em>: shuffling the inputs shuffles the
+outputs the same way (permutation equivariance). That is fine for a bag
+of items, but bad for language — “the cat sat” does not mean the same as
+“sat the cat.” To process sequences we must inject position into either
+the inputs or the comparison scores.</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">#</th>
+<th style="text-align: left;">Method</th>
+<th style="text-align: left;">What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">0</td>
+<td style="text-align: left;">Absolute embeddings (early)</td>
+<td style="text-align: left;">Add a learned vector <span
+class="math inline">\(e_t\)</span> to input <span
+class="math inline">\(x_t\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">(i)</td>
+<td style="text-align: left;">Relative key shift</td>
+<td style="text-align: left;">Add a learned vector <span
+class="math inline">\(\mathbf{p}_{ij}\)</span> to the key</td>
+</tr>
+<tr>
+<td style="text-align: center;">(ii)</td>
+<td style="text-align: left;">Relative bias</td>
+<td style="text-align: left;">Add a learned scalar <span
+class="math inline">\(p_{ij}\)</span> to the score</td>
+</tr>
+<tr>
+<td style="text-align: center;">(iii)</td>
+<td style="text-align: left;">RoPE</td>
+<td style="text-align: left;">Rotate <span
+class="math inline">\(q_i\)</span> and <span
+class="math inline">\(k_j\)</span> by angles depending on <span
+class="math inline">\(i,j\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Relative methods depend on the <strong>offset</strong> <span
+class="math inline">\(i-j\)</span> (up to some maximum), so they
+extrapolate past training lengths better than absolute embeddings.</p>
+<h2 id="shared-baby-setup">Shared baby setup</h2>
+<p>Two tokens, dimension <span class="math inline">\(d_k=2\)</span>. For
+clarity we sometimes omit <span
+class="math inline">\(\sqrt{d_k}\)</span> (the story is unchanged with
+scaling): <span
+class="math display">\[q_1=\begin{bmatrix}1\\0\end{bmatrix},\;
+  q_2=\begin{bmatrix}0\\1\end{bmatrix},\qquad
+  k_1=\begin{bmatrix}1\\0\end{bmatrix},\;
+  k_2=\begin{bmatrix}0\\1\end{bmatrix}.\]</span> Without position info,
+scores are just <span class="math inline">\(q_i^\top k_j\)</span>: <span
+class="math display">\[S
+  =
+  \begin{bmatrix}
+    q_1^\top k_1 &amp; q_1^\top k_2 \\
+    q_2^\top k_1 &amp; q_2^\top k_2
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+    1 &amp; 0 \\
+    0 &amp; 1
+  \end{bmatrix}.\]</span> If we swap the two tokens, this pattern just
+swaps with them. Order is not truly “seen”; only content matching
+is.</p>
+<h2 id="absolute-position-embeddings-early-approach">Absolute position
+embeddings (early approach)</h2>
+<p>Learn a vector <span class="math inline">\(e_t\)</span> for each
+index and <strong>add it before</strong> projecting: <span
+class="math display">\[\tilde{x}_t = x_t + e_t,
+  \qquad
+  q_t = W_Q \tilde{x}_t,\;\ldots\]</span></p>
+<h4 id="baby-example.">Baby example.</h4>
+<p>Let <span
+class="math display">\[e_1=\begin{bmatrix}1\\0\end{bmatrix},\qquad
+  e_2=\begin{bmatrix}0\\1\end{bmatrix}.\]</span> Suppose two tokens have
+the <em>same content</em> <span
+class="math inline">\(x_1=x_2=\begin{bmatrix}0\\0\end{bmatrix}\)</span>
+(so without PE they are identical). After adding positions, <span
+class="math display">\[\tilde{x}_1=e_1,\qquad \tilde{x}_2=e_2.\]</span>
+They are no longer the same, so <span class="math inline">\(q_1\neq
+q_2\)</span> and <span class="math inline">\(k_1\neq k_2\)</span>.
+Softmax can treat “token at position 1” differently from “token at
+position 2” even if the words were identical.</p>
+<h4 id="order-preserved">Order preserved?</h4>
+<p>Yes: if a word moves from slot 1 to slot 2, it picks up <span
+class="math inline">\(e_2\)</span> instead of <span
+class="math inline">\(e_1\)</span>, so scores change.</p>
+<h4 id="weakness.">Weakness.</h4>
+<p>Embeddings are only learned up to the longest training length <span
+class="math inline">\(T_{\max}\)</span>. A longer test sequence has no
+<span class="math inline">\(e_{T_{\max}+1}\)</span>. This absolute
+approach is uncommon today for that reason.</p>
+<h2 id="method-i-relative-vector-on-the-key">Method (i): Relative vector
+on the key</h2>
+<p>Idea: leave the query alone; <strong>add a learned position vector to
+the key</strong> before the dot product. The vector depends only on the
+offset <span class="math inline">\(i-j\)</span>: <span
+class="math display">\[\alpha(q_i,k_j)
+  =
+  \frac{q_i^\top (k_j + \mathbf{p}_{ij})}{\sqrt{d_k}},
+  \qquad
+  \mathbf{p}_{ij} = \mathbf{p}_{i-j}.\]</span></p>
+<h4 id="initial-vectors-content-only.">Initial vectors (content
+only).</h4>
+<p>Reuse the shared baby <span class="math inline">\(q\)</span> and
+<span class="math inline">\(k\)</span>: <span
+class="math display">\[q_1=\begin{bmatrix}1\\0\end{bmatrix},\;
+  q_2=\begin{bmatrix}0\\1\end{bmatrix},\qquad
+  k_1=\begin{bmatrix}1\\0\end{bmatrix},\;
+  k_2=\begin{bmatrix}0\\1\end{bmatrix}.\]</span> Content-only scores (no
+position yet): <span class="math display">\[S_{\text{content}}
+  =
+  \begin{bmatrix}
+    q_1^\top k_1 &amp; q_1^\top k_2 \\
+    q_2^\top k_1 &amp; q_2^\top k_2
+  \end{bmatrix}
+  =
+  \begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}.\]</span></p>
+<h4 id="position-table-we-will-add.">Position table we will add.</h4>
+<p>One learned vector per offset (for <span
+class="math inline">\(T=2\)</span>): <span
+class="math display">\[\mathbf{p}_{0}=\begin{bmatrix}0\\0\end{bmatrix},\quad
+  \mathbf{p}_{+1}=\begin{bmatrix}1\\0\end{bmatrix},\quad
+  \mathbf{p}_{-1}=\begin{bmatrix}0\\1\end{bmatrix}.\]</span></p>
+<h4
+id="step-by-step-inject-position-into-each-key-then-score.">Step-by-step:
+inject position into each key, then score.</h4>
+<p>For every pair <span class="math inline">\((i,j)\)</span>:</p>
+<ol>
+<li><p>Start with the content key <span
+class="math inline">\(k_j\)</span>.</p></li>
+<li><p>Look up the offset <span class="math inline">\(i-j\)</span> and
+fetch <span class="math inline">\(\mathbf{p}_{i-j}\)</span>.</p></li>
+<li><p>Form the position-aware key <span
+class="math inline">\(\tilde{k}_{ij} := k_j +
+\mathbf{p}_{i-j}\)</span>.</p></li>
+<li><p>Score: <span class="math inline">\(s_{ij} = q_i^\top
+\tilde{k}_{ij}\)</span> (optionally divide by <span
+class="math inline">\(\sqrt{d_k}\)</span>).</p></li>
+</ol>
+<p><strong>Pair <span class="math inline">\((1,1)\)</span></strong> —
+offset <span class="math inline">\(0\)</span>: <span
+class="math display">\[\begin{align*}
+  k_1 &amp;= \begin{bmatrix}1\\0\end{bmatrix}, \\
+  \tilde{k}_{11}
+    &amp;= k_1 + \mathbf{p}_{0}
+     = \begin{bmatrix}1\\0\end{bmatrix}+\begin{bmatrix}0\\0\end{bmatrix}
+     = \begin{bmatrix}1\\0\end{bmatrix}, \\
+  s_{11}
+    &amp;= q_1^\top \tilde{k}_{11}
+     =
+\begin{bmatrix}1&amp;0\end{bmatrix}\begin{bmatrix}1\\0\end{bmatrix}
+     = 1.
+\end{align*}\]</span></p>
+<p><strong>Pair <span class="math inline">\((1,2)\)</span></strong> —
+offset <span class="math inline">\(1-2=-1\)</span>: <span
+class="math display">\[\begin{align*}
+  k_2 &amp;= \begin{bmatrix}0\\1\end{bmatrix}, \\
+  \tilde{k}_{12}
+    &amp;= k_2 + \mathbf{p}_{-1}
+     = \begin{bmatrix}0\\1\end{bmatrix}+\begin{bmatrix}0\\1\end{bmatrix}
+     = \begin{bmatrix}0\\2\end{bmatrix}, \\
+  s_{12}
+    &amp;= q_1^\top \tilde{k}_{12}
+     =
+\begin{bmatrix}1&amp;0\end{bmatrix}\begin{bmatrix}0\\2\end{bmatrix}
+     = 0.
+\end{align*}\]</span></p>
+<p><strong>Pair <span class="math inline">\((2,1)\)</span></strong> —
+offset <span class="math inline">\(+1\)</span>: <span
+class="math display">\[\begin{align*}
+  k_1 &amp;= \begin{bmatrix}1\\0\end{bmatrix}, \\
+  \tilde{k}_{21}
+    &amp;= k_1 + \mathbf{p}_{+1}
+     = \begin{bmatrix}1\\0\end{bmatrix}+\begin{bmatrix}1\\0\end{bmatrix}
+     = \begin{bmatrix}2\\0\end{bmatrix}, \\
+  s_{21}
+    &amp;= q_2^\top \tilde{k}_{21}
+     =
+\begin{bmatrix}0&amp;1\end{bmatrix}\begin{bmatrix}2\\0\end{bmatrix}
+     = 0.
+\end{align*}\]</span></p>
+<p><strong>Pair <span class="math inline">\((2,2)\)</span></strong> —
+offset <span class="math inline">\(0\)</span>: <span
+class="math display">\[\begin{align*}
+  \tilde{k}_{22}
+    &amp;= k_2 + \mathbf{p}_{0}
+     = \begin{bmatrix}0\\1\end{bmatrix}, \\
+  s_{22}
+    &amp;= q_2^\top \tilde{k}_{22}
+     = 1.
+\end{align*}\]</span></p>
+<h4 id="what-you-end-with.">What you end with.</h4>
+<p>Position-aware score matrix: <span class="math display">\[S_{(i)}
+  =
+  \begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}
+  =
+  S_{\text{content}}
+  \quad\text{(with this particular \(\mathbf{p}\) table)}.\]</span> The
+<em>keys that were actually used</em> are no longer the raw <span
+class="math inline">\(k_j\)</span>; they are the position-shifted
+versions <span
+class="math display">\[\tilde{k}_{11}=\begin{bmatrix}1\\0\end{bmatrix},\;
+  \tilde{k}_{12}=\begin{bmatrix}0\\2\end{bmatrix},\;
+  \tilde{k}_{21}=\begin{bmatrix}2\\0\end{bmatrix},\;
+  \tilde{k}_{22}=\begin{bmatrix}0\\1\end{bmatrix}.\]</span> If we change
+<span class="math inline">\(\mathbf{p}_{+1}\)</span> to <span
+class="math inline">\(\begin{bmatrix}2\\0\end{bmatrix}\)</span>, then
+<span
+class="math inline">\(s_{21}=q_2^\top\begin{bmatrix}3\\0\end{bmatrix}=0\)</span>
+still here, but a query with a nonzero first component would get a boost
+when looking <em>backward</em>. Different offsets use different <span
+class="math inline">\(\mathbf{p}\)</span>, so “A then B” and “B then A”
+can produce different scores even when A and B have similar content.</p>
+<h4 id="cost.">Cost.</h4>
+<p>One learned vector of size <span class="math inline">\(d_k\)</span>
+per offset — somewhat costly.</p>
+<h2 id="method-ii-relative-scalar-bias">Method (ii): Relative scalar
+bias</h2>
+<p>Idea: keep the content key unchanged; <strong>add a learned scalar to
+the score</strong> after the content dot product. The scalar depends
+only on the offset <span class="math inline">\(i-j\)</span>: <span
+class="math display">\[\alpha(q_i,k_j)
+  =
+  \frac{q_i^\top k_j}{\sqrt{d_k}} + p_{ij},
+  \qquad
+  p_{ij}=p_{i-j}.\]</span></p>
+<h4 id="initial-vectors-content-only.-1">Initial vectors (content
+only).</h4>
+<p>Same baby <span class="math inline">\(q\)</span> and <span
+class="math inline">\(k\)</span> as above. Content-only score matrix:
+<span class="math display">\[S_{\text{content}}
+  =
+  \begin{bmatrix}
+    q_1^\top k_1 &amp; q_1^\top k_2 \\
+    q_2^\top k_1 &amp; q_2^\top k_2
+  \end{bmatrix}
+  =
+  \begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}.\]</span> Notice: here we
+do <em>not</em> modify <span class="math inline">\(k_j\)</span> itself.
+The vectors <span class="math inline">\(q_i\)</span> and <span
+class="math inline">\(k_j\)</span> stay exactly as they are.</p>
+<h4 id="position-table-we-will-add.-1">Position table we will add.</h4>
+<p>One learned scalar per offset (“prefer attending to the previous
+token”): <span class="math display">\[p_{0}=0,\qquad p_{+1}=+2,\qquad
+p_{-1}=-1.\]</span></p>
+<h4
+id="step-by-step-compute-content-score-then-add-the-bias.">Step-by-step:
+compute content score, then add the bias.</h4>
+<p>For every pair <span class="math inline">\((i,j)\)</span>:</p>
+<ol>
+<li><p>Start with content vectors <span
+class="math inline">\(q_i\)</span> and <span
+class="math inline">\(k_j\)</span> (unchanged).</p></li>
+<li><p>Content score: <span
+class="math inline">\(s^{\text{content}}_{ij}=q_i^\top
+k_j\)</span>.</p></li>
+<li><p>Look up offset <span class="math inline">\(i-j\)</span> and fetch
+scalar <span class="math inline">\(p_{i-j}\)</span>.</p></li>
+<li><p>Position-aware score: <span
+class="math inline">\(s_{ij}=s^{\text{content}}_{ij}+p_{i-j}\)</span>.</p></li>
+</ol>
+<p><strong>Pair <span class="math inline">\((1,1)\)</span></strong> —
+offset <span class="math inline">\(0\)</span>: <span
+class="math display">\[s^{\text{content}}_{11}=1,\quad
+  p_{0}=0,\quad
+  s_{11}=1+0=1.\]</span></p>
+<p><strong>Pair <span class="math inline">\((1,2)\)</span></strong> —
+offset <span class="math inline">\(-1\)</span>: <span
+class="math display">\[s^{\text{content}}_{12}=0,\quad
+  p_{-1}=-1,\quad
+  s_{12}=0+(-1)=-1.\]</span></p>
+<p><strong>Pair <span class="math inline">\((2,1)\)</span></strong> —
+offset <span class="math inline">\(+1\)</span>: <span
+class="math display">\[s^{\text{content}}_{21}=0,\quad
+  p_{+1}=+2,\quad
+  s_{21}=0+2=2.\]</span></p>
+<p><strong>Pair <span class="math inline">\((2,2)\)</span></strong> —
+offset <span class="math inline">\(0\)</span>: <span
+class="math display">\[s^{\text{content}}_{22}=1,\quad
+  p_{0}=0,\quad
+  s_{22}=1+0=1.\]</span></p>
+<h4 id="what-you-end-with.-1">What you end with.</h4>
+<p><span class="math display">\[S_{(ii)}
+  =
+  S_{\text{content}}
+  +
+  \underbrace{\begin{bmatrix}
+    p_{0} &amp; p_{-1} \\
+    p_{+1} &amp; p_{0}
+  \end{bmatrix}}_{\text{position bias matrix}}
+  =
+  \begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}
+  +
+  \begin{bmatrix}0&amp;-1\\2&amp;0\end{bmatrix}
+  =
+  \begin{bmatrix}1&amp;-1\\2&amp;1\end{bmatrix}.\]</span> Softmax on
+row 2 (scores <span class="math inline">\([2,1]\)</span>) puts more
+weight on position 1 — the previous token — than on itself. That
+preference is <em>purely positional</em>; the content vectors never
+changed.</p>
+<p>If you swap the sequence, the bias table is still indexed by
+positions <span class="math inline">\((i,j)\)</span>, so the favored
+“previous” neighbor is a different word. Order matters. Cheaper
+than (i): one number per offset, not a <span
+class="math inline">\(d_k\)</span>-vector.</p>
+<h2 id="method-iii-rope-rotary-position-encoding">Method (iii): RoPE
+(rotary position encoding)</h2>
+<p>Idea: do not add a table of <span class="math inline">\(p\)</span>’s.
+Instead, <strong>rotate</strong> the query by an angle depending on its
+absolute index <span class="math inline">\(i\)</span>, and rotate the
+key by an angle depending on <span class="math inline">\(j\)</span>.
+Relative position appears automatically in the dot product: <span
+class="math display">\[\alpha(q_i,k_j)
+  =
+  \frac{(R_i q_i)^\top (R_j k_j)}{\sqrt{d_k}}.\]</span> In 2D, rotation
+by <span class="math inline">\(\phi\)</span> is <span
+class="math display">\[R(\phi)
+  =
+  \begin{bmatrix}
+    \cos\phi &amp; -\sin\phi \\
+    \sin\phi &amp; \cos\phi
+  \end{bmatrix}.\]</span> <strong>Key identity:</strong> <span
+class="math display">\[(R_i q)^\top (R_j k)
+  =
+  q^\top R_i^\top R_j k
+  =
+  q^\top R_{j-i}\, k.\]</span> So the score depends on the relative
+angle <span class="math inline">\((j-i)\theta\)</span>.</p>
+<h4 id="initial-vectors-content-only.-2">Initial vectors (content
+only).</h4>
+<p>Take a single content direction for a clear demo: <span
+class="math display">\[q=\begin{bmatrix}1\\0\end{bmatrix},\qquad
+  k=\begin{bmatrix}1\\0\end{bmatrix}.\]</span> Without RoPE, <span
+class="math inline">\(q^\top k=1\)</span> no matter where they sit.
+Position has not entered yet.</p>
+<h4 id="position-rotations-we-will-apply.">Position rotations we will
+apply.</h4>
+<p>Fix <span class="math inline">\(\theta=\pi/2\)</span> (90°). Absolute
+rotations for indices <span class="math inline">\(0,1,2\)</span>: <span
+class="math display">\[\begin{align*}
+  R_0 &amp;= R(0)
+       = \begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}
+       \quad\text{(identity; no rotation)}, \\
+  R_1 &amp;= R(\pi/2)
+       = \begin{bmatrix}0&amp;-1\\1&amp;0\end{bmatrix}, \\
+  R_2 &amp;= R(\pi)
+       = \begin{bmatrix}-1&amp;0\\0&amp;-1\end{bmatrix}.
+\end{align*}\]</span></p>
+<h4
+id="step-by-step-rotate-each-vector-by-its-absolute-position.">Step-by-step:
+rotate each vector by its absolute position.</h4>
+<p>For a query at index <span class="math inline">\(i\)</span> and a key
+at index <span class="math inline">\(j\)</span>:</p>
+<ol>
+<li><p>Start with content vectors <span class="math inline">\(q\)</span>
+and <span class="math inline">\(k\)</span>.</p></li>
+<li><p>Form the position-aware query <span
+class="math inline">\(\tilde{q}_i := R_i q\)</span>.</p></li>
+<li><p>Form the position-aware key <span
+class="math inline">\(\tilde{k}_j := R_j k\)</span>.</p></li>
+<li><p>Score: <span class="math inline">\(s_{ij}=\tilde{q}_i^\top
+\tilde{k}_j\)</span> (equivalently <span class="math inline">\(q^\top
+R_{j-i}\,k\)</span>).</p></li>
+</ol>
+<p><strong>Case A — same position</strong> (<span
+class="math inline">\(i=j=0\)</span>, offset <span
+class="math inline">\(0\)</span>): <span
+class="math display">\[\begin{align*}
+  \tilde{q}_0 &amp;= R_0 q = \begin{bmatrix}1\\0\end{bmatrix}, \\
+  \tilde{k}_0 &amp;= R_0 k = \begin{bmatrix}1\\0\end{bmatrix}, \\
+  s_{00}
+    &amp;= \tilde{q}_0^\top \tilde{k}_0
+     = 1.
+\end{align*}\]</span> Initial <span class="math inline">\(q,k\)</span>
+are unchanged because <span class="math inline">\(R_0=I\)</span>.</p>
+<p><strong>Case B — key one step ahead</strong> (<span
+class="math inline">\(i=0\)</span>, <span
+class="math inline">\(j=1\)</span>, offset <span
+class="math inline">\(+1\)</span>): <span
+class="math display">\[\begin{align*}
+  \tilde{q}_0 &amp;= R_0 q = \begin{bmatrix}1\\0\end{bmatrix}
+  \quad\text{(query still ``pointing right&#39;&#39;)}, \\
+  \tilde{k}_1 &amp;= R_1 k
+               = \begin{bmatrix}0&amp;-1\\1&amp;0\end{bmatrix}
+                 \begin{bmatrix}1\\0\end{bmatrix}
+               = \begin{bmatrix}0\\1\end{bmatrix}
+  \quad\text{(key now ``pointing up&#39;&#39;)}, \\
+  s_{01}
+    &amp;= \tilde{q}_0^\top \tilde{k}_1
+     =
+\begin{bmatrix}1&amp;0\end{bmatrix}\begin{bmatrix}0\\1\end{bmatrix}
+     = 0.
+\end{align*}\]</span></p>
+<p><strong>Case C — query at 1, key at 2</strong> (still offset <span
+class="math inline">\(+1\)</span>): <span
+class="math display">\[\begin{align*}
+  \tilde{q}_1 &amp;= R_1 q = \begin{bmatrix}0\\1\end{bmatrix}, \\
+  \tilde{k}_2 &amp;= R_2 k = \begin{bmatrix}-1\\0\end{bmatrix}, \\
+  s_{12}
+    &amp;= \tilde{q}_1^\top \tilde{k}_2
+     =
+\begin{bmatrix}0&amp;1\end{bmatrix}\begin{bmatrix}-1\\0\end{bmatrix}
+     = 0.
+\end{align*}\]</span> Same relative offset as Case B <span
+class="math inline">\(\Rightarrow\)</span> same score <span
+class="math inline">\(0\)</span>, even though absolute indices differ.
+That is the relative property of RoPE.</p>
+<h4 id="what-you-end-with.-2">What you end with.</h4>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Case</th>
+<th style="text-align: center;">Initial <span
+class="math inline">\(q,k\)</span></th>
+<th style="text-align: center;">After rotation</th>
+<th style="text-align: center;">Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><span
+class="math inline">\(i=j=0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}1\\0\end{bmatrix},\begin{bmatrix}1\\0\end{bmatrix}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}1\\0\end{bmatrix},\begin{bmatrix}1\\0\end{bmatrix}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;"><span
+class="math inline">\(i=0,j=1\)</span></td>
+<td style="text-align: center;">same content</td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}1\\0\end{bmatrix},\begin{bmatrix}0\\1\end{bmatrix}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;"><span
+class="math inline">\(i=1,j=2\)</span></td>
+<td style="text-align: center;">same content</td>
+<td style="text-align: center;"><span
+class="math inline">\(\begin{bmatrix}0\\1\end{bmatrix},\begin{bmatrix}-1\\0\end{bmatrix}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Same content, different offset <span
+class="math inline">\(\Rightarrow\)</span> different score. Relative
+position is baked into the geometry of the rotated vectors. RoPE needs
+no learned <span class="math inline">\(p\)</span> and is common in
+modern LLMs.</p>
+<h2 id="how-position-encoding-preserves-sequence-order">How position
+encoding preserves sequence order</h2>
+<p>We close by tying the three methods back to the original problem:
+making self-attention care about order. Below we start from the
+<em>same</em> initial content vectors in two different orders and show
+that, once position is injected, the final attention scores (and
+therefore <span class="math inline">\(Y\)</span>) differ.</p>
+<h4 id="initial-content-vectors-no-position-yet.">Initial content
+vectors (no position yet).</h4>
+<p>Two tokens with contents <span class="math inline">\(A\)</span> and
+<span class="math inline">\(B\)</span>: <span
+class="math display">\[x_A=\begin{bmatrix}1\\0\end{bmatrix},\qquad
+  x_B=\begin{bmatrix}0\\1\end{bmatrix}.\]</span> For a transparent demo,
+take <span class="math inline">\(W_Q=W_K=I\)</span>, so <span
+class="math inline">\(q=k=x\)</span> at each position, and use
+method (ii) biases <span class="math inline">\(p_0=0\)</span>, <span
+class="math inline">\(p_{+1}=+2\)</span>, <span
+class="math inline">\(p_{-1}=-1\)</span>.</p>
+<h4 id="order-1-a-then-b-positions-12.">Order 1: <span
+class="math inline">\(A\)</span> then <span
+class="math inline">\(B\)</span> (positions <span
+class="math inline">\(1,2\)</span>).</h4>
+<ol>
+<li><p>Place contents into slots: <span
+class="math inline">\(x_1=x_A=\begin{bmatrix}1\\0\end{bmatrix}\)</span>,
+<span
+class="math inline">\(x_2=x_B=\begin{bmatrix}0\\1\end{bmatrix}\)</span>.</p></li>
+<li><p>Content scores: <span class="math display">\[S_{\text{content}}
+          =
+          \begin{bmatrix}
+            x_A^\top x_A &amp; x_A^\top x_B \\
+            x_B^\top x_A &amp; x_B^\top x_B
+          \end{bmatrix}
+          =
+          \begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}.\]</span></p></li>
+<li><p>Add position biases by offset: <span
+class="math display">\[S^{(A,B)}
+          =
+          \begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}
+          +
+          \begin{bmatrix}0&amp;-1\\2&amp;0\end{bmatrix}
+          =
+          \begin{bmatrix}1&amp;-1\\2&amp;1\end{bmatrix}.\]</span></p></li>
+<li><p>Softmax (approx.): row 2 <span
+class="math inline">\(\mathrm{softmax}([2,1])\approx[0.73,\,0.27]\)</span>.
+So token <span class="math inline">\(B\)</span> (position 2) pulls
+<em>mostly from <span class="math inline">\(A\)</span></em> (the
+previous token).</p></li>
+</ol>
+<h4 id="order-2-b-then-a-positions-12.">Order 2: <span
+class="math inline">\(B\)</span> then <span
+class="math inline">\(A\)</span> (positions <span
+class="math inline">\(1,2\)</span>).</h4>
+<ol>
+<li><p>Same contents, swapped slots: <span
+class="math inline">\(x_1=x_B=\begin{bmatrix}0\\1\end{bmatrix}\)</span>,
+<span
+class="math inline">\(x_2=x_A=\begin{bmatrix}1\\0\end{bmatrix}\)</span>.</p></li>
+<li><p>Content scores: <span class="math display">\[S_{\text{content}}
+          =
+          \begin{bmatrix}
+            x_B^\top x_B &amp; x_B^\top x_A \\
+            x_A^\top x_B &amp; x_A^\top x_A
+          \end{bmatrix}
+          =
+          \begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}.\]</span> (Same
+matrix shape of <span class="math inline">\(1\)</span>s on the diagonal
+— content matching alone still cannot tell the two orders
+apart.)</p></li>
+<li><p>Add the <em>same</em> position-bias table (indexed by slots, not
+by word identity): <span class="math display">\[S^{(B,A)}
+          =
+          \begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}
+          +
+          \begin{bmatrix}0&amp;-1\\2&amp;0\end{bmatrix}
+          =
+          \begin{bmatrix}1&amp;-1\\2&amp;1\end{bmatrix}.\]</span></p></li>
+<li><p>Softmax again puts row 2 weight mostly on position 1 — but
+position 1 is now <span class="math inline">\(B\)</span>, so token <span
+class="math inline">\(A\)</span> pulls mostly from <span
+class="math inline">\(B\)</span>.</p></li>
+</ol>
+<h4 id="what-changed">What changed?</h4>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">Order <span
+class="math inline">\(A,B\)</span></th>
+<th style="text-align: left;">Order <span
+class="math inline">\(B,A\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Initial slot 1 vector</td>
+<td style="text-align: left;"><span
+class="math inline">\(x_A=\begin{bmatrix}1\\0\end{bmatrix}\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(x_B=\begin{bmatrix}0\\1\end{bmatrix}\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">Initial slot 2 vector</td>
+<td style="text-align: left;"><span
+class="math inline">\(x_B=\begin{bmatrix}0\\1\end{bmatrix}\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(x_A=\begin{bmatrix}1\\0\end{bmatrix}\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">After adding position</td>
+<td style="text-align: left;">biases favor “look left”</td>
+<td style="text-align: left;">same biases, different neighbor</td>
+</tr>
+<tr>
+<td style="text-align: left;">Who does slot 2 read?</td>
+<td style="text-align: left;">mostly <span
+class="math inline">\(A\)</span></td>
+<td style="text-align: left;">mostly <span
+class="math inline">\(B\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Same words, different order <span
+class="math inline">\(\Rightarrow\)</span> different mixes in <span
+class="math inline">\(Y=AV\)</span>. Without the position step, both
+orders would produce equivalent (shuffled) attention; with it, order is
+preserved.</p>
+<h4 id="without-pe-vs.-with-pe-summary.">Without PE vs. with PE
+(summary).</h4>
+<ul>
+<li><p><strong>Without PE:</strong> content alone decides scores;
+shuffling tokens shuffles outputs the same way; “cat sat” and “sat cat”
+induce the same set of interactions.</p></li>
+<li><p><strong>With PE:</strong> position changes vectors (<span
+class="math inline">\(x_t+e_t\)</span>, rotated <span
+class="math inline">\(q,k\)</span>) or scores (<span
+class="math inline">\(+\,p_{ij}\)</span>); <span
+class="math inline">\(A_{ij}\)</span> depends on both content match
+<em>and</em> offset/order; softmax still picks where to look and values
+supply what to read, but “where” is position-aware.</p></li>
+</ul>
+<h4 id="one-line-map-of-the-three-lecture-variants.">One-line map of the
+three lecture variants.</h4>
+<ul>
+<li><p><strong>(i)</strong> Start with <span
+class="math inline">\(k_j\)</span>; add learned relative vector <span
+class="math inline">\(\mathbf{p}_{i-j}\)</span>; then <span
+class="math inline">\(q_i^\top(k_j+\mathbf{p}_{i-j})\)</span>.</p></li>
+<li><p><strong>(ii)</strong> Start with <span
+class="math inline">\(q_i^\top k_j\)</span>; add learned relative scalar
+<span class="math inline">\(p_{i-j}\)</span> before softmax.</p></li>
+<li><p><strong>(iii)</strong> Start with <span
+class="math inline">\(q_i,k_j\)</span>; rotate to <span
+class="math inline">\(R_i q_i\)</span> and <span
+class="math inline">\(R_j k_j\)</span>; their angle difference carries
+the offset (RoPE).</p></li>
+</ul>
+<p>Absolute embeddings add “I am at index <span
+class="math inline">\(t\)</span>” to the token itself; relative methods
+encode “you are <span class="math inline">\(i-j\)</span> steps away from
+me” inside the comparison.</p>
+<h1 id="multi-headed-self-attention">Multi-Headed Self-Attention</h1>
+<p>In a transformer we do not run self-attention once. We run <span
+class="math inline">\(H\)</span> <strong>heads</strong> in parallel —
+each an independent self-attention with its own weights — then aggregate
+them. This is analogous to multiple channels in a CNN: same input,
+different filters, then combine.</p>
+<h2 id="intuition-what-a-head-is-and-is-not">Intuition: what a head is
+(and is not)</h2>
+<p>A <strong>head</strong> is one full self-attention pathway: one
+triple of weight matrices <span
+class="math display">\[\bigl(\mathbf{W}_Q^{(i)},\,\mathbf{W}_K^{(i)},\,\mathbf{W}_V^{(i)}\bigr)\]</span>
+plus the scores, softmax weights, and outputs those weights induce on
+the shared input <span class="math inline">\(\mathbf{x}\)</span>.</p>
+<h4
+id="structurally-every-head-is-the-same-kind-of-object.">Structurally,
+every head is the same kind of object.</h4>
+<p>Same shapes, same formulas, same steps (project <span
+class="math inline">\(\to\)</span> score <span
+class="math inline">\(\to\)</span> softmax <span
+class="math inline">\(\to\)</span> weighted values). There is
+<em>no</em> built-in specialty — nothing in the definition says “head 1
+does syntax” or “head 2 looks at coordinate 1.” The big <span
+class="math inline">\(W\)</span>’s are peers: different <em>copies</em>
+of the same type of parameters.</p>
+<h4 id="what-multi-head-actually-buys-you.">What multi-head actually
+buys you.</h4>
+<p>Multi-head means: keep <span class="math inline">\(H\)</span>
+separate sets of <span class="math inline">\(W\)</span>’s. That gives
+the model extra capacity — <span class="math inline">\(H\)</span>
+chances to learn <span class="math inline">\(H\)</span> attention
+patterns in parallel — then <span
+class="math inline">\(\mathbf{W}_O\)</span> blends them. Whether those
+patterns actually become usefully different is up to training (random
+init + the loss). If two heads ended up with identical <span
+class="math inline">\(W\)</span>’s, they would compute identical <span
+class="math inline">\(\mathbf{h}^{(i)}\)</span> and the extras would buy
+nothing.</p>
+<h4 id="why-more-than-one-copy-can-help.">Why more than one copy can
+help.</h4>
+<p>One triple <span
+class="math inline">\((\mathbf{W}_Q,\mathbf{W}_K,\mathbf{W}_V)\)</span>
+implements only <em>one</em> soft “who matches whom” rule. Sequences
+often need several rules at once. Multiple parameter copies give room
+for that; they do not hard-code what each rule is.</p>
+<p><strong>One-line intuition.</strong> Multi-heads <span
+class="math inline">\(=\)</span> different sets of the big <span
+class="math inline">\(W\)</span>’s (same architecture, separate
+parameters). They offer different opportunities for attention patterns;
+there is no inherent structural difference among the <span
+class="math inline">\(W\)</span>’s themselves.</p>
+<h2 id="definition-same-notation">Definition (same notation)</h2>
+<p>Multi-headed self-attention applies <span
+class="math inline">\(H\)</span> independent self-attentions, each with
+its own <span
+class="math inline">\(\mathbf{W}_Q^{(i)},\mathbf{W}_K^{(i)},\mathbf{W}_V^{(i)}\)</span>,
+and aggregates with a learned output matrix <span
+class="math inline">\(\mathbf{W}_O\)</span>.</p>
+<p>For each head <span class="math inline">\(i=1,\ldots,H\)</span>,
+<span class="math display">\[\mathbf{h}^{(i)}
+  =
+  \operatorname{self\text{-}attention}\!\bigl(
+  \mathbf{W}_Q^{(i)},\,
+  \mathbf{W}_K^{(i)},\,
+  \mathbf{W}_V^{(i)},\,
+  \mathbf{x}
+  \bigr).\]</span> Each <span
+class="math inline">\(\mathbf{h}^{(i)}\)</span> is a length-<span
+class="math inline">\(T\)</span> sequence of vectors in <span
+class="math inline">\(\mathbb{R}^{d_v}\)</span>. Stack the <span
+class="math inline">\(H\)</span> head outputs at a position and mix:
+<span class="math display">\[\text{Output}
+  =
+  \mathbf{W}_O
+  \begin{bmatrix}
+    \mathbf{h}^{(1)} \\[0.25em]
+    \mathbf{h}^{(2)} \\[0.25em]
+    \vdots \\[0.25em]
+    \mathbf{h}^{(H)}
+  \end{bmatrix},
+  \qquad
+  \mathbf{W}_O \in \mathbb{R}^{d_v \times H d_v}.\]</span> <span
+class="math inline">\(\mathbf{W}_O\)</span> maps the stacked <span
+class="math inline">\(H d_v\)</span>-vector back to <span
+class="math inline">\(d_v\)</span>, so the layer still emits <span
+class="math inline">\(d_v\)</span>-dimensional vectors — now informed by
+all heads.</p>
+<h4 id="flow.">Flow.</h4>
+<p><span class="math display">\[\mathbf{x}
+  \;\longrightarrow\;
+  \begin{cases}
+  \text{head }1:\;
+  \mathbf{W}_Q^{(1)},\mathbf{W}_K^{(1)},\mathbf{W}_V^{(1)}
+  \;\to\;\mathbf{h}^{(1)} \\[0.2em]
+  \text{head }2:\;
+  \mathbf{W}_Q^{(2)},\mathbf{W}_K^{(2)},\mathbf{W}_V^{(2)}
+  \;\to\;\mathbf{h}^{(2)} \\[0.2em]
+  \vdots \\[0.2em]
+  \text{head }H:\;
+  \mathbf{W}_Q^{(H)},\mathbf{W}_K^{(H)},\mathbf{W}_V^{(H)}
+  \;\to\;\mathbf{h}^{(H)}
+  \end{cases}
+  \;\xrightarrow{\;\text{stack}\;}
+  \mathbb{R}^{H d_v}
+  \;\xrightarrow{\;\mathbf{W}_O\;}
+  \mathbb{R}^{d_v}.\]</span></p>
+<h2 id="baby-example-setup">Baby example: setup</h2>
+<p>Take <span class="math inline">\(T=2\)</span>, <span
+class="math inline">\(H=2\)</span>, embedding size <span
+class="math inline">\(m=2\)</span>, and <span
+class="math inline">\(d_k=d_v=1\)</span> so every projection is a single
+number (easy to see by hand).</p>
+<h4 id="initial-input-vectors.">Initial input vectors.</h4>
+<p><span
+class="math display">\[\mathbf{x}_1=\begin{bmatrix}1\\0\end{bmatrix},\qquad
+  \mathbf{x}_2=\begin{bmatrix}0\\1\end{bmatrix}.\]</span> Each <span
+class="math inline">\(\mathbf{x}_t\)</span> is just a length-2 list of
+numbers (two entries).</p>
+<h4 id="head-1-weights">Head 1 weights</h4>
+<p>(a teaching choice, not a definition of “head”): <span
+class="math display">\[\mathbf{W}_Q^{(1)}=\begin{bmatrix}1&amp;0\end{bmatrix},\quad
+  \mathbf{W}_K^{(1)}=\begin{bmatrix}1&amp;0\end{bmatrix},\quad
+  \mathbf{W}_V^{(1)}=\begin{bmatrix}1&amp;0\end{bmatrix}.\]</span></p>
+<h4 id="head-2-weights">Head 2 weights</h4>
+<p>(another teaching choice — different copy of <span
+class="math inline">\(W\)</span>): <span
+class="math display">\[\mathbf{W}_Q^{(2)}=\begin{bmatrix}0&amp;1\end{bmatrix},\quad
+  \mathbf{W}_K^{(2)}=\begin{bmatrix}0&amp;1\end{bmatrix},\quad
+  \mathbf{W}_V^{(2)}=\begin{bmatrix}0&amp;1\end{bmatrix}.\]</span></p>
+<h4 id="why-these-particular-numbers">Why these particular numbers?</h4>
+<p>Only to make the arithmetic show two heads disagreeing. With <span
+class="math inline">\(\mathbf{W}^{(1)}=\begin{bmatrix}1&amp;0\end{bmatrix}\)</span>,
+each projection keeps only the <em>top</em> entry of <span
+class="math inline">\(\mathbf{x}_t\)</span> (feature dim <span
+class="math inline">\(2\to 1\)</span>); sequence length stays <span
+class="math inline">\(T=2\)</span>. With <span
+class="math inline">\(\mathbf{W}^{(2)}=\begin{bmatrix}0&amp;1\end{bmatrix}\)</span>,
+each projection keeps only the <em>bottom</em> entry. That is a
+hand-picked illustration that <strong>different <span
+class="math inline">\(W\)</span>’s <span
+class="math inline">\(\Rightarrow\)</span> different <span
+class="math inline">\(q,k,v\)</span> and different <span
+class="math inline">\(A\)</span></strong>. It is <em>not</em> claiming
+that real heads are “the first-entry head” and “the second-entry head.”
+In a trained model each <span
+class="math inline">\(\mathbf{W}^{(i)}\)</span> is a full learned map
+over all features.</p>
+<h2 id="step-a-head-1-does-ordinary-self-attention">Step A — Head 1 does
+ordinary self-attention</h2>
+<h4 id="project-initial-mathbfx-to-qkv.">1. Project (initial <span
+class="math inline">\(\mathbf{x}\)</span> <span
+class="math inline">\(\to\)</span> <span
+class="math inline">\(q,k,v\)</span>).</h4>
+<p><span class="math display">\[\begin{align*}
+  q_1^{(1)} &amp;= \mathbf{W}_Q^{(1)}\mathbf{x}_1
+             =
+\begin{bmatrix}1&amp;0\end{bmatrix}\begin{bmatrix}1\\0\end{bmatrix}
+             = 1, \\
+  k_1^{(1)} &amp;= \mathbf{W}_K^{(1)}\mathbf{x}_1 = 1, \\
+  v_1^{(1)} &amp;= \mathbf{W}_V^{(1)}\mathbf{x}_1 = 1, \\[0.4em]
+  q_2^{(1)} &amp;= \mathbf{W}_Q^{(1)}\mathbf{x}_2
+             =
+\begin{bmatrix}1&amp;0\end{bmatrix}\begin{bmatrix}0\\1\end{bmatrix}
+             = 0, \\
+  k_2^{(1)} &amp;= 0, \\
+  v_2^{(1)} &amp;= 0.
+\end{align*}\]</span></p>
+<h4 id="score.">2. Score.</h4>
+<p>Since <span class="math inline">\(d_k=1\)</span>, <span
+class="math inline">\(\sqrt{d_k}=1\)</span>, so <span
+class="math display">\[S^{(1)}
+  =
+  \begin{bmatrix}
+    q_1^{(1)} k_1^{(1)} &amp; q_1^{(1)} k_2^{(1)} \\[0.25em]
+    q_2^{(1)} k_1^{(1)} &amp; q_2^{(1)} k_2^{(1)}
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+    1 &amp; 0 \\
+    0 &amp; 0
+  \end{bmatrix}.\]</span></p>
+<h4 id="softmax-where-to-look.">3. Softmax (where to look).</h4>
+<p><span class="math display">\[A^{(1)}
+  =
+  \mathrm{row\text{-}softmax}(S^{(1)})
+  \approx
+  \begin{bmatrix}
+    0.73 &amp; 0.27 \\
+    0.50 &amp; 0.50
+  \end{bmatrix}.\]</span> (Row 1 favors position 1; row 2 is uniform
+because both scores were 0.)</p>
+<h4 id="reduce-what-to-read.">4. Reduce (what to read).</h4>
+<p><span class="math display">\[\begin{aligned}
+  h_1^{(1)}
+  &amp;=
+  0.73\,v_1^{(1)}+0.27\,v_2^{(1)}
+  =
+  0.73\cdot 1 + 0.27\cdot 0
+  \approx 0.73, \\
+  h_2^{(1)}
+  &amp;=
+  0.50\cdot 1 + 0.50\cdot 0
+  = 0.50.
+\end{aligned}\]</span> Head 1 output sequence: <span
+class="math display">\[\mathbf{h}^{(1)} \approx \bigl(0.73,\;
+0.50\bigr).\]</span></p>
+<h4 id="intuition.">Intuition.</h4>
+<p>Same procedure as ordinary self-attention. Because we <em>chose</em>
+<span
+class="math inline">\(\mathbf{W}^{(1)}=\begin{bmatrix}1&amp;0\end{bmatrix}\)</span>,
+the values happen to be <span
+class="math inline">\((v_1^{(1)},v_2^{(1)})=(1,0)\)</span>. Softmax on
+row 1 pulls mostly from <span class="math inline">\(v_1^{(1)}\)</span>,
+so <span class="math inline">\(h_1^{(1)}\)</span> is large; position 2
+averages, so <span class="math inline">\(h_2^{(1)}\)</span> is
+mid-sized. The important point is not “first entry”; it is that this
+particular copy of the <span class="math inline">\(W\)</span>’s induced
+this particular <span class="math inline">\(A^{(1)}\)</span> and <span
+class="math inline">\(\mathbf{h}^{(1)}\)</span>.</p>
+<h2 id="step-b-head-2-same-mathbfx-different-weights">Step B — Head 2,
+same <span class="math inline">\(\mathbf{x}\)</span>, different
+weights</h2>
+<h4 id="project.">1. Project.</h4>
+<p><span class="math display">\[\begin{align*}
+  q_1^{(2)} &amp;= \mathbf{W}_Q^{(2)}\mathbf{x}_1
+             =
+\begin{bmatrix}0&amp;1\end{bmatrix}\begin{bmatrix}1\\0\end{bmatrix}
+             = 0, \\
+  k_1^{(2)} &amp;= 0,\qquad v_1^{(2)}=0, \\[0.3em]
+  q_2^{(2)} &amp;= \mathbf{W}_Q^{(2)}\mathbf{x}_2
+             =
+\begin{bmatrix}0&amp;1\end{bmatrix}\begin{bmatrix}0\\1\end{bmatrix}
+             = 1, \\
+  k_2^{(2)} &amp;= 1,\qquad v_2^{(2)}=1.
+\end{align*}\]</span></p>
+<h4 id="score-softmax-reduce.">2–4. Score, softmax, reduce.</h4>
+<p><span class="math display">\[S^{(2)}
+  =
+  \begin{bmatrix}
+    0 &amp; 0 \\
+    0 &amp; 1
+  \end{bmatrix},
+  \qquad
+  A^{(2)}
+  \approx
+  \begin{bmatrix}
+    0.50 &amp; 0.50 \\
+    0.27 &amp; 0.73
+  \end{bmatrix}.\]</span> <span class="math display">\[\begin{aligned}
+  h_1^{(2)}
+  &amp;= 0.50\cdot 0 + 0.50\cdot 1 = 0.50, \\
+  h_2^{(2)}
+  &amp;= 0.27\cdot 0 + 0.73\cdot 1 \approx 0.73.
+\end{aligned}\]</span> Head 2 output sequence: <span
+class="math display">\[\mathbf{h}^{(2)} \approx \bigl(0.50,\;
+0.73\bigr).\]</span></p>
+<h4 id="intuition.-1">Intuition.</h4>
+<p>Step B is the <em>same recipe</em> as Step A; the only change is a
+<em>different</em> set of <span class="math inline">\(W\)</span>’s. With
+our toy <span class="math inline">\(\mathbf{W}^{(2)}\)</span>, the
+values happen to be <span class="math inline">\((0,1)\)</span> and the
+attention pattern flips relative to head 1: <span
+class="math display">\[A^{(1)}\approx\begin{bmatrix}0.73&amp;0.27\\0.50&amp;0.50\end{bmatrix},
+  \qquad
+  A^{(2)}\approx\begin{bmatrix}0.50&amp;0.50\\0.27&amp;0.73\end{bmatrix}.\]</span>
+Same <span class="math inline">\(\mathbf{x}\)</span>; different
+parameter copies <span class="math inline">\(\Rightarrow\)</span>
+different <span class="math inline">\(A\)</span> and <span
+class="math inline">\(\mathbf{h}\)</span>. If instead <span
+class="math inline">\(\mathbf{W}^{(2)}=\mathbf{W}^{(1)}\)</span>,
+Steps A and B would be identical — there is no magic that forces heads
+apart beyond having separate parameters that training may (or may not)
+differentiate.</p>
+<h2 id="step-c-stack-heads-and-mix-with-mathbfw_o">Step C — Stack heads
+and mix with <span class="math inline">\(\mathbf{W}_O\)</span></h2>
+<p>At each position <span class="math inline">\(t\)</span>, stack the
+two head outputs. Here each head output is a scalar (<span
+class="math inline">\(d_v=1\)</span>), so the stack is 2-dimensional:
+<span class="math display">\[\begin{bmatrix}
+    h_t^{(1)} \\[0.25em]
+    h_t^{(2)}
+  \end{bmatrix}
+  \in \mathbb{R}^{H d_v} = \mathbb{R}^{2}.\]</span> Lecture shape: <span
+class="math inline">\(\mathbf{W}_O \in \mathbb{R}^{d_v \times H d_v}
+= \mathbb{R}^{1\times 2}\)</span>. Pick a simple mixer that sums the two
+heads: <span class="math display">\[\mathbf{W}_O = \begin{bmatrix}1
+&amp; 1\end{bmatrix}.\]</span></p>
+<h4 id="position-1-initial-stacked-vector-then-mix.">Position 1 —
+initial stacked vector, then mix.</h4>
+<p><span class="math display">\[\begin{align*}
+  \begin{bmatrix} h_1^{(1)} \\ h_1^{(2)} \end{bmatrix}
+  &amp;\approx
+  \begin{bmatrix} 0.73 \\ 0.50 \end{bmatrix}, \\[0.3em]
+  \text{output}_1
+  &amp;=
+  \mathbf{W}_O
+  \begin{bmatrix} h_1^{(1)} \\ h_1^{(2)} \end{bmatrix}
+  \approx
+  \begin{bmatrix}1&amp;1\end{bmatrix}
+  \begin{bmatrix}0.73\\0.50\end{bmatrix}
+  = 1.23.
+\end{align*}\]</span></p>
+<h4 id="position-2.">Position 2.</h4>
+<p><span class="math display">\[\begin{align*}
+  \begin{bmatrix} h_2^{(1)} \\ h_2^{(2)} \end{bmatrix}
+  &amp;\approx
+  \begin{bmatrix} 0.50 \\ 0.73 \end{bmatrix}, \\[0.3em]
+  \text{output}_2
+  &amp;\approx
+  \begin{bmatrix}1&amp;1\end{bmatrix}
+  \begin{bmatrix}0.50\\0.73\end{bmatrix}
+  = 1.23.
+\end{align*}\]</span></p>
+<h4 id="what-you-end-with.-3">What you end with.</h4>
+<p>A length-<span class="math inline">\(T=2\)</span> sequence of <span
+class="math inline">\(d_v\)</span>-dimensional outputs <span
+class="math display">\[\bigl(\text{output}_1,\;\text{output}_2\bigr)
+  \approx
+  \bigl(1.23,\; 1.23\bigr),\]</span> each built from <em>both</em>
+heads.</p>
+<h4 id="intuition-for-mathbfw_o.">Intuition for <span
+class="math inline">\(\mathbf{W}_O\)</span>.</h4>
+<ul>
+<li><p><span
+class="math inline">\(\mathbf{W}_O=\begin{bmatrix}1&amp;0\end{bmatrix}\)</span>:
+keep head 1 only; ignore head 2.</p></li>
+<li><p><span
+class="math inline">\(\mathbf{W}_O=\begin{bmatrix}0&amp;1\end{bmatrix}\)</span>:
+keep head 2 only.</p></li>
+<li><p><span
+class="math inline">\(\mathbf{W}_O=\begin{bmatrix}0.5&amp;0.5\end{bmatrix}\)</span>:
+average the two views.</p></li>
+<li><p><span
+class="math inline">\(\mathbf{W}_O=\begin{bmatrix}1&amp;1\end{bmatrix}\)</span>
+(our choice): sum / amplify both.</p></li>
+</ul>
+<p>In a real network <span class="math inline">\(\mathbf{W}_O\)</span>
+is learned, so gradient descent decides how to blend the <span
+class="math inline">\(H\)</span> head outputs (whatever patterns their
+separate <span class="math inline">\(W\)</span>’s happened to learn)
+into one vector per position.</p>
+<h2 id="single-head-vs.-multi-head">Single-head vs. multi-head</h2>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">Single-head</th>
+<th style="text-align: left;">Multi-head</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Input</td>
+<td style="text-align: left;"><span
+class="math inline">\(\mathbf{x}_1,\ldots,\mathbf{x}_T\)</span></td>
+<td style="text-align: left;">same</td>
+</tr>
+<tr>
+<td style="text-align: left;">Weights</td>
+<td style="text-align: left;">one <span
+class="math inline">\(\mathbf{W}_Q,\mathbf{W}_K,\mathbf{W}_V\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(H\)</span>
+copies of the same kind of <span class="math inline">\(W\)</span>’s</td>
+</tr>
+<tr>
+<td style="text-align: left;">Structure of each head</td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">identical architecture; only parameters
+differ</td>
+</tr>
+<tr>
+<td style="text-align: left;">Attention</td>
+<td style="text-align: left;">one matrix <span
+class="math inline">\(A\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(H\)</span>
+matrices <span class="math inline">\(A^{(i)}\)</span> (may or may not
+differ)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Before mix</td>
+<td style="text-align: left;"><span
+class="math inline">\(d_v\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(H d_v\)</span>
+(stacked)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Final size</td>
+<td style="text-align: left;"><span
+class="math inline">\(d_v\)</span></td>
+<td style="text-align: left;">still <span
+class="math inline">\(d_v\)</span>, via <span
+class="math inline">\(\mathbf{W}_O\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">Length</td>
+<td style="text-align: left;"><span class="math inline">\(T\to
+T\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(T\to
+T\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="summary-of-the-baby-walk-through">Summary of the baby
+walk-through</h2>
+<ol>
+<li><p><strong>Start:</strong> <span
+class="math inline">\(\mathbf{x}_1=\begin{bmatrix}1\\0\end{bmatrix}\)</span>,
+<span
+class="math inline">\(\mathbf{x}_2=\begin{bmatrix}0\\1\end{bmatrix}\)</span>.</p></li>
+<li><p><strong>Head 1:</strong> project with <span
+class="math inline">\(\mathbf{W}^{(1)}\)</span> <span
+class="math inline">\(\to\)</span> scores <span
+class="math inline">\(S^{(1)}\)</span> <span
+class="math inline">\(\to\)</span> weights <span
+class="math inline">\(A^{(1)}\)</span> <span
+class="math inline">\(\to\)</span> <span
+class="math inline">\(\mathbf{h}^{(1)}\approx(0.73,\,0.50)\)</span>.</p></li>
+<li><p><strong>Head 2:</strong> same <span
+class="math inline">\(\mathbf{x}\)</span>, different <span
+class="math inline">\(\mathbf{W}^{(2)}\)</span> <span
+class="math inline">\(\to\)</span> <span
+class="math inline">\(\mathbf{h}^{(2)}\approx(0.50,\,0.73)\)</span>.</p></li>
+<li><p><strong>Stack</strong> at each <span
+class="math inline">\(t\)</span>: <span
+class="math inline">\(\begin{bmatrix}h_t^{(1)}\\h_t^{(2)}\end{bmatrix}\)</span>.</p></li>
+<li><p><strong>Mix:</strong> <span
+class="math inline">\(\text{output}_t=\mathbf{W}_O[\cdots]\)</span>;
+still length <span class="math inline">\(T\)</span>, dimension <span
+class="math inline">\(d_v\)</span>.</p></li>
+</ol>
+<p><strong>Remember:</strong> <em>a head = one copy of <span
+class="math inline">\((\mathbf{W}_Q,\mathbf{W}_K,\mathbf{W}_V)\)</span>
+running ordinary self-attention. Multi-head = <span
+class="math inline">\(H\)</span> such copies (same structure, separate
+parameters), stacked and blended by <span
+class="math inline">\(\mathbf{W}_O\)</span>. No inherent role is baked
+into any head.</em></p>
+<h1 id="attention-pooling-in-a-full-network">Attention Pooling in a Full
+Network</h1>
+<p>Self-attention rewrites a length-<span
+class="math inline">\(T\)</span> sequence into another length-<span
+class="math inline">\(T\)</span> sequence. A closely related
+pattern—<strong>attention pooling</strong>—collapses a variable-length
+sequence into <em>one</em> context vector, then feeds that vector to a
+small feed-forward head. The five attention ingredients are unchanged;
+only the query source and output shape differ.</p>
+<h2 id="pooling-vs.-self-attention">Pooling vs. self-attention</h2>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">Attention pooling</th>
+<th style="text-align: left;">Self-attention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Query</td>
+<td style="text-align: left;"><strong>One</strong> learned <span
+class="math inline">\(q\)</span> (or <span
+class="math inline">\(H\)</span> queries for multi-head)</td>
+<td style="text-align: left;">One <span class="math inline">\(q_t=W_Q
+x_t\)</span> <strong>per position</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;">Keys / values</td>
+<td style="text-align: left;">Feature vectors <span
+class="math inline">\(h_t\)</span> (often after a dense layer); often
+<span class="math inline">\(v_t=h_t\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(k_t=W_K
+x_t\)</span>, <span class="math inline">\(v_t=W_V x_t\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">Output length</td>
+<td style="text-align: left;"><strong>One</strong> context <span
+class="math inline">\(c\)</span> per sequence</td>
+<td style="text-align: left;"><strong><span
+class="math inline">\(T\)</span></strong> outputs <span
+class="math inline">\(y_1,\ldots,y_T\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">Typical role</td>
+<td style="text-align: left;">Summarize sequence <span
+class="math inline">\(\to\)</span> predict a scalar / class</td>
+<td style="text-align: left;">Rewrite each token with context</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Same core reduction <span class="math inline">\(c=\sum_t\alpha_t
+v_t\)</span> with <span
+class="math inline">\(\alpha=\mathrm{softmax}(e)\)</span>; different
+query source and output shape.</p>
+<h2 id="demonstrated-example-selective-marked-sum">Demonstrated example:
+selective marked sum</h2>
+<p>As a concrete end-to-end illustration, consider sequences whose
+tokens are 2D vectors <span
+class="math inline">\((\text{value},\,\text{mark})\)</span>:</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: center;">Pos 0</th>
+<th style="text-align: center;">Pos 1</th>
+<th style="text-align: center;">Pos 2</th>
+<th style="text-align: center;">Pos 3</th>
+<th style="text-align: center;">…</th>
+<th style="text-align: center;">later</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">value</td>
+<td style="text-align: center;"><span
+class="math inline">\(0.5\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(-0.7\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\mathbf{0.3}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(0.1\)</span></td>
+<td style="text-align: center;">…</td>
+<td style="text-align: center;"><span
+class="math inline">\(\mathbf{0.9}\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">mark</td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(\mathbf{1}\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+<td style="text-align: center;">…</td>
+<td style="text-align: center;"><span
+class="math inline">\(\mathbf{1}\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<ul>
+<li><p><strong>Input <span class="math inline">\(X\)</span>:</strong>
+the whole sequence of these vectors.</p></li>
+<li><p><strong>Target <span class="math inline">\(y\)</span>:</strong>
+sum of values where mark <span class="math inline">\(=1\)</span> (here
+<span class="math inline">\(y=0.3+0.9=1.2\)</span>).</p></li>
+<li><p><strong>Prediction <span
+class="math inline">\(\hat{y}\)</span>:</strong> the network’s scalar
+output.</p></li>
+<li><p><strong>Loss:</strong> <span
+class="math inline">\(\mathrm{MSE}(\hat{y},\,y)\)</span>.</p></li>
+</ul>
+<p>Attention receives no separate supervision. The regression loss alone
+trains every parameter—including the query and any scoring weights—so
+that <span class="math inline">\(\alpha_t\)</span> learns to focus on
+marked positions. Construction of layers creates parameters; the forward
+pass applies them to a batch to produce <span
+class="math inline">\(\hat{y}\)</span>; training repeats forward <span
+class="math inline">\(\to\)</span> loss <span
+class="math inline">\(\to\)</span> backward <span
+class="math inline">\(\to\)</span> optimizer step.</p>
+<h2 id="where-attention-sits-in-the-network">Where attention sits in the
+network</h2>
+<p><span class="math display">\[\begin{aligned}
+X &amp;\in \mathbb{R}^{B\times T\times 2}
+  &amp;&amp;\text{(batch of sequences)} \\
+h &amp;= \mathrm{Dense}_1(X)
+  &amp;&amp;\in \mathbb{R}^{B\times T\times d}
+  \quad\text{(position-wise)} \\
+c &amp;= \mathrm{AttnPool}(h;\,q)
+  &amp;&amp;\in \mathbb{R}^{B\times d}
+  \quad\text{(one vector per example)} \\
+\hat{y} &amp;= \mathrm{Out}(\mathrm{Dense}_2(c))
+  &amp;&amp;\in \mathbb{R}^{B\times 1}
+  \quad\text{(predicted marked sum)}.
+\end{aligned}\]</span></p>
+<p>Keys and values are typically both <span
+class="math inline">\(h\)</span>. Softmax chooses <em>where</em> to
+look; <span class="math inline">\(h_t\)</span> supplies <em>what</em> to
+average. This is the same reduction seen in seq2seq attention, but with
+a <em>learned</em> query instead of a decoder state, and with a scalar
+head instead of a next-token RNN.</p>
+<h2 id="score-functions-pooling-form">Score functions (pooling
+form)</h2>
+<p>One shared query <span class="math inline">\(q\)</span> for the whole
+sequence: <span class="math display">\[\begin{align*}
+\text{Bahdanau (additive):} &amp;\quad
+  e_t = q^\top \tanh(W_a h_t + b_a), \\
+\text{Scaled dot-product:} &amp;\quad
+  e_t = \frac{q^\top h_t}{\sqrt{d}}, \\
+\text{Multiplicative:} &amp;\quad
+  e_t = q^\top W_a h_t
+  \quad\text{(no \(\tanh\), no bias)}.
+\end{align*}\]</span> Then <span
+class="math inline">\(\alpha=\mathrm{softmax}(e)\)</span> and <span
+class="math inline">\(c=\sum_t \alpha_t h_t\)</span>.</p>
+<h4 id="multi-head-pooling.">Multi-head pooling.</h4>
+<p>Use <span class="math inline">\(H\)</span> queries <span
+class="math inline">\(q^{(1)},\ldots,q^{(H)}\)</span> on the same
+keys/values, obtain <span class="math inline">\(H\)</span> contexts,
+concatenate, and mix with a learned <span
+class="math inline">\(W_O\)</span> back to model dimension. Same idea as
+multi-headed self-attention: separate parameter copies, no built-in
+specialty per head; the output is still one pooled vector per
+sequence.</p>
+<h2 id="padding-and-attention-masks">Padding and attention masks</h2>
+<p>Sequences in a batch may differ in length. Padding to a common <span
+class="math inline">\(T_{\max}\)</span> requires a mask so padded
+positions do not enter the softmax: <span
+class="math display">\[\texttt{attention\_mask}[b,t]
+  =
+  \begin{cases}
+  1 &amp; \text{if position \(t\) is padding}, \\
+  0 &amp; \text{if it is a real token}.
+  \end{cases}\]</span> Before softmax, set <span
+class="math inline">\(e_t=-\infty\)</span> on pads so <span
+class="math inline">\(\alpha_t\approx 0\)</span>. Without masking,
+padding steals attention mass and corrupts <span
+class="math inline">\(c\)</span>.</p>
+<h2 id="training-loop-in-brief">Training loop in brief</h2>
+<h4 id="one-training-step.">One training step.</h4>
+<p>Load <span class="math inline">\((X,y,\mathrm{mask})\)</span>;
+forward <span
+class="math inline">\(\hat{y}=f_\theta(X,\mathrm{mask})\)</span>;
+compute <span
+class="math inline">\(\ell=\mathrm{MSE}(\hat{y},y)\)</span>;
+backpropagate (gradients reach dense layers <em>and</em> attention
+parameters); optimizer step (often with gradient clipping).</p>
+<h4 id="validation-prediction.">Validation / prediction.</h4>
+<p>Same forward without gradient tracking: no parameter updates.
+Validation tracks generalization; prediction collects <span
+class="math inline">\(\hat{y}\)</span> (e.g. against <span
+class="math inline">\(y\)</span> on a scatter plot) to check that the
+network recovers marked sums.</p>
+<h2 id="pseudocode-overview">Pseudocode overview</h2>
+<pre><code># ----- Data -----
+for each example:
+    X = [(v_t, m_t)] for t = 1..T     # m_t in {0,1}
+    y = sum of v_t where m_t == 1     # regression target
+
+# ----- Batching -----
+pad sequences in a batch to length T_max
+mask[b,t] = 1 if pad else 0
+
+# ----- Model forward -----
+h = Dense1(X)                         # (B, T, d), position-wise
+e_t = score(q, h_t)                   # Bahdanau / dot / multiplicative
+e_t = -inf if mask_t else e_t
+alpha = softmax(e) over t
+c = sum_t alpha_t * h_t               # pooled context (B, d)
+y_hat = Out(Dense2(c))                # (B, 1)
+
+# ----- Train step -----
+loss = MSE(y_hat, y)
+loss.backward()
+optimizer.step()</code></pre>
+<p>Multi-head variant: replace one <span
+class="math inline">\(q\)</span> by <span
+class="math inline">\(q^{(1)},\ldots,q^{(H)}\)</span>, form <span
+class="math inline">\(H\)</span> contexts, concatenate, apply <span
+class="math inline">\(W_O\)</span>; still one <span
+class="math inline">\(c\)</span> per example.</p>
+<h2 id="takeaways">Takeaways</h2>
+<ul>
+<li><p>Pooling is attention with a single (or few) queries and a
+length-1 output—ideal when the downstream task needs one summary, not a
+rewritten sequence.</p></li>
+<li><p>The marked-sum task shows how soft selection can discover which
+positions matter from a scalar loss alone.</p></li>
+<li><p>Masking is part of the mechanism: pads must not receive attention
+mass.</p></li>
+</ul>
+<h1 id="cheat-sheet">Cheat Sheet</h1>
+<ol>
+<li><p><strong>Five ingredients:</strong> query, keys, values,
+comparison, reduction. Softmax chooses where; values supply
+what.</p></li>
+<li><p><strong>1-NN as attention:</strong> keys = training points,
+values = labels, comparison = negated distance, hard reduction = <span
+class="math inline">\(\operatorname{argmax}\)</span>; soft version uses
+softmax.</p></li>
+<li><p><strong>Seq2seq + attention:</strong> query <span
+class="math inline">\(=s_{t&#39;-1}\)</span>, keys/values <span
+class="math inline">\(=h_{1:T}\)</span>, per-step context <span
+class="math inline">\(c_{t&#39;}=\sum_t\alpha_t h_t\)</span> replaces
+the single bottleneck <span
+class="math inline">\(c=h_T\)</span>.</p></li>
+<li><p><strong>Self-attention:</strong> <span
+class="math inline">\(q_t=W_Q x_t\)</span>, <span
+class="math inline">\(k_t=W_K x_t\)</span>, <span
+class="math inline">\(v_t=W_V x_t\)</span>; score <span
+class="math inline">\(s_{tj}=q_t^\top k_j/\sqrt{d_k}\)</span>; <span
+class="math inline">\(Y=\operatorname{softmax}(S)V\)</span>. Length
+<span class="math inline">\(T\)</span> in <span
+class="math inline">\(\to\)</span> length <span
+class="math inline">\(T\)</span> out. Path length <span
+class="math inline">\(O(1)\)</span>; fully parallelizable.</p></li>
+<li><p><strong>Order:</strong> self-attention alone is orderless;
+absolute / relative / RoPE position encodings make scores depend on
+order.</p></li>
+<li><p><strong>Multi-head:</strong> <span
+class="math inline">\(H\)</span> independent copies of <span
+class="math inline">\((W_Q,W_K,W_V)\)</span>; stack head outputs; mix
+with <span class="math inline">\(W_O\)</span>.</p></li>
+<li><p><strong>Pooling:</strong> one (or <span
+class="math inline">\(H\)</span>) learned query(/ies); one context <span
+class="math inline">\(c=\sum_t\alpha_t h_t\)</span>; feed-forward head
+predicts a scalar (e.g. marked sum) with MSE.</p></li>
+</ol>
+<p><strong>Remember:</strong> <em>softmax chooses where to look; values
+are what you read. Position encoding makes “where” depend on order, not
+only on content. Multi-head adds capacity via independent parameter
+copies, not inherently different kinds of <span
+class="math inline">\(W\)</span>. Path length <span
+class="math inline">\(O(1)\)</span> is why self-attention mixes distant
+tokens in a single layer.</em></p>
+<h1 class="unnumbered" id="references">References</h1>
+<ul>
+<li><p>Bahdanau, D., Cho, K., and Bengio, Y. (2015). Neural Machine
+Translation by Jointly Learning to Align and Translate.
+<em>ICLR</em>.</p></li>
+<li><p>Vaswani, A., Shazeer, N., Parmar, N., et al. (2017). Attention Is
+All You Need. <em>NeurIPS</em>.</p></li>
+<li><p>Su, J., Ahmed, M., Lu, Y., et al. (2024). RoFormer: Enhanced
+Transformer with Rotary Position Embedding.
+<em>Neurocomputing</em>.</p></li>
+</ul>
+      </article>
+      <details class="source-panel" open>
+        <summary>LaTeX source for this note (<code>lecture-07-attention.tex</code>)</summary>
+        <div class="inner">
+          <p style="color:var(--muted);font-family:ui-sans-serif,system-ui,sans-serif;font-size:0.9rem">
+            The published note is maintained as LaTeX. The rendered text above is generated from this source; the full <code>.tex</code> is embedded below so the site showcases the note source directly (not a PDF viewer).
+          </p>
+          <pre id="tex-source">Loading LaTeX source…</pre>
+        </div>
+      </details>
+    </main>
+  </div>
+  <script>
+    fetch('./lecture-07-attention.tex')
+      .then(r => r.text())
+      .then(t => { document.getElementById('tex-source').textContent = t; })
+      .catch(() => { document.getElementById('tex-source').textContent = 'Could not load lecture-07-attention.tex'; });
+  </script>
+</body>
+</html>
