@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lecture 07 — Attention and Self-Attention</title>
+  <meta name="description" content="CSC2516 study notes on attention and self-attention." />
+  <style>
+    :root {
+      --bg: #f6f3ee;
+      --ink: #1c1b19;
+      --muted: #5c574f;
+      --line: #d9d2c5;
+      --card: #fffdf9;
+      --accent: #0f4c5c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at top left, #efe8db 0%, transparent 45%),
+        linear-gradient(180deg, var(--bg), #efe9df);
+      min-height: 100vh;
+    }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 3rem;
+    }
+    header {
+      margin-bottom: 1.5rem;
+    }
+    .eyebrow {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.5rem;
+    }
+    h1 {
+      font-size: clamp(1.7rem, 3vw, 2.4rem);
+      line-height: 1.15;
+      margin: 0 0 0.6rem;
+      font-weight: 600;
+    }
+    .lede {
+      max-width: 42rem;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.55;
+      margin: 0 0 1.25rem;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-bottom: 1.5rem;
+    }
+    a.btn {
+      display: inline-block;
+      text-decoration: none;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: #fff;
+      padding: 0.55rem 0.95rem;
+      border-radius: 999px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.9rem;
+    }
+    a.btn.secondary {
+      background: transparent;
+      color: var(--ink);
+    }
+    .viewer {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(40, 30, 10, 0.06);
+      min-height: 75vh;
+    }
+    iframe {
+      width: 100%;
+      height: 80vh;
+      border: 0;
+      display: block;
+      background: #fff;
+    }
+    footer {
+      margin-top: 1.25rem;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    footer a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">CSC2516 · Deep Learning Notes</p>
+      <h1>Lecture 07 — Attention and Self-Attention</h1>
+      <p class="lede">
+        Study notes covering attention as associative memory, soft 1-NN,
+        sequence-to-sequence with attention, self-attention with a worked
+        example, path length, position encodings, multi-head attention, and
+        attention pooling.
+      </p>
+      <div class="actions">
+        <a class="btn" href="lecture-07-attention.pdf">Open PDF</a>
+        <a class="btn secondary" href="https://github.com/jerryyao-uofc/deep-learning-notes">View source on GitHub</a>
+      </div>
+    </header>
+    <div class="viewer">
+      <iframe
+        title="Lecture 07 Attention PDF"
+        src="lecture-07-attention.pdf"
+      ></iframe>
+    </div>
+    <footer>
+      Source:
+      <a href="lecture-07-attention.tex">lecture-07-attention.tex</a>
+      · Repo:
+      <a href="https://github.com/jerryyao-uofc/deep-learning-notes">jerryyao-uofc/deep-learning-notes</a>
+    </footer>
+  </main>
+</body>
+</html>
