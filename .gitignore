@@ -5,3 +5,5 @@
 *.synctex.gz
 .DS_Store
 notes/07-attention/body.html
+notes/08-transformers-part-1/body.html
+*.pdf

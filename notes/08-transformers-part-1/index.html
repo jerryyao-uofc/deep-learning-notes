@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lecture 8 Study Notes: Transformers, Part 1 · Deep Learning Notes</title>
+  <meta name="description" content="Ground-up study notes on transformers part 1: layer norm, feed-forward networks, pre/post LN, efficient attention, GQA, and encoder-only applications." />
+  <script>
+    MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  <style>
+:root {
+  --bg: #f7f4ef;
+  --ink: #1c1b19;
+  --muted: #5c574f;
+  --line: #d9d2c5;
+  --card: #fffdf9;
+  --accent: #0f4c5c;
+  --accent-soft: #e7f0f2;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at top left, #efe8db 0%, transparent 42%),
+    linear-gradient(180deg, var(--bg), #efe9df);
+  line-height: 1.6;
+}
+a { color: var(--accent); }
+.site-shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: rgba(255,253,249,0.92);
+  padding: 1.5rem 1.1rem;
+  position: sticky; top: 0; height: 100vh; overflow: auto;
+}
+.brand {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 0.35rem;
+}
+.sidebar h1 {
+  font-size: 1.15rem; margin: 0 0 0.75rem; font-weight: 600; line-height: 1.25;
+}
+.sidebar p { font-size: 0.92rem; color: var(--muted); margin: 0 0 1.25rem; }
+.nav-label {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 0.5rem;
+}
+.note-list { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+.note-list li { margin: 0 0 0.35rem; }
+.note-list a, .note-list span {
+  display: block; text-decoration: none; color: var(--ink);
+  border: 1px solid transparent; border-radius: 10px; padding: 0.55rem 0.65rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.9rem;
+}
+.note-list a:hover { background: var(--accent-soft); }
+.note-list a.active { background: var(--accent-soft); border-color: #b7d0d6; }
+.note-list .upcoming { color: var(--muted); opacity: 0.85; }
+.note-list small { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 0.15rem; }
+.credit { font-size: 0.8rem; color: var(--muted); }
+.content { padding: 1.75rem 1.5rem 3rem; max-width: 52rem; }
+.topbar {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+  margin-bottom: 1.25rem;
+}
+.btn {
+  display: inline-block; text-decoration: none; border: 1px solid var(--ink);
+  background: var(--ink); color: #fff !important; padding: 0.45rem 0.85rem;
+  border-radius: 999px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem;
+}
+.btn.secondary { background: transparent; color: var(--ink) !important; }
+.article h1.title { font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.2; margin: 0 0 0.5rem; }
+.article .author { color: var(--muted); margin: 0 0 1.25rem; font-size: 0.95rem; }
+.article h1, .article h2, .article h3 { line-height: 1.25; }
+.article h2 { margin-top: 2rem; border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; }
+.article table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.95rem; }
+.article th, .article td { border: 1px solid var(--line); padding: 0.4rem 0.55rem; vertical-align: top; }
+.article pre, .source-panel pre {
+  background: #1e1e1e; color: #f5f5f5; padding: 1rem; border-radius: 10px;
+  overflow: auto; font-size: 0.78rem; line-height: 1.45;
+}
+.article code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+.source-panel {
+  margin-top: 2.5rem; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--card); overflow: hidden;
+}
+.source-panel summary {
+  cursor: pointer; padding: 0.9rem 1rem;
+  font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 600;
+  background: #f3efe7;
+}
+.source-panel .inner { padding: 0 1rem 1rem; }
+#TOC { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0.85rem 1rem; margin: 1rem 0 1.5rem; }
+#TOC ul { padding-left: 1.2rem; }
+@media (max-width: 900px) {
+  .site-shell { grid-template-columns: 1fr; }
+  .sidebar { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+  <div class="site-shell">
+    
+<aside class="sidebar">
+  <p class="brand">Deep Learning Notes</p>
+  <h1>Study notes showcase</h1>
+  <p>Extra detail, intuition, and simple examples — written to be easier to follow from the ground up.</p>
+  <p class="nav-label">Notes</p>
+  <ul class="note-list">
+    <li>
+      <a href="../07-attention/index.html">07 · Attention &amp; Self-Attention
+        <small>Published</small>
+      </a>
+    </li>
+    <li>
+      <a class="active" href="./index.html">08 · Transformers, Part 1
+        <small>Published</small>
+      </a>
+    </li>
+    <li>
+      <a href="../06-sequences-rnns/index.html">06 · Sequences &amp; RNNs
+        <small>Published</small>
+      </a>
+    </li>
+    <li><span class="upcoming">05 · CNNs &amp; Residuals <small>Upcoming</small></span></li>
+    <li><span class="upcoming">04 · Gradient Methods <small>Upcoming</small></span></li>
+  </ul>
+  <p class="credit">
+    Formation of these notes borrows heavily from the
+    <a href="https://r-three.github.io/deep-learning-lecture-notes/">original course website (CSC2516)</a>.
+  </p>
+  <p class="credit" style="margin-top:0.75rem">
+    <a href="../../index.html">← All notes home</a>
+  </p>
+</aside>
+
+    <main class="content">
+      <div class="topbar">
+        <a class="btn secondary" href="../../index.html">Notes home</a>
+        <a class="btn secondary" href="./lecture-08-transformers-part-1.tex">Download .tex</a>
+        <a class="btn secondary" href="https://github.com/jerryyao-uofc/deep-learning-notes">GitHub</a>
+      </div>
+      <article class="article">
+<header id="title-block-header">
+<h1 class="title">Lecture 8 Study Notes:<br />
+Transformers, Part 1</h1>
+<p class="author">Deep Learning Notes<br />
+Ground-up intuitions and worked examples<br />
+Formation borrows heavily from the <a
+href="https://r-three.github.io/deep-learning-lecture-notes/lectures/08-transformers-part-1.html">original
+course website (CSC2516)</a></p>
+<div class="abstract">
+<div class="abstract-title">Abstract</div>
+<p>These notes are a first slice of <strong>Lecture 8: Transformers,
+Part 1</strong>. Still to come: removing biases, gated feed-forward
+networks, and the full BERT write-up. What is here so far is
+<strong>layer normalization</strong> set next to batch normalization,
+the <strong>position-wise feed-forward network</strong>,
+<strong>pre-</strong> versus <strong>post-layer norm</strong>,
+<strong>efficient and local attention</strong>, <strong>grouped-query
+attention</strong>, and the <strong>encoder-only
+transformer</strong>—with application intuition for classification,
+labeling, span extraction, and fine-tuning versus frozen embeddings—with
+the baby examples kept for reference. Content formation borrows heavily
+from the original <a
+href="https://r-three.github.io/deep-learning-lecture-notes/">course
+website (CSC2516)</a>.</p>
+</div>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#layer-normalization" id="toc-layer-normalization">Layer
+Normalization</a></li>
+<li><a href="#sec:hti" id="toc-sec:hti">What <span
+class="math inline">\(h_{t,i}\)</span> Is</a></li>
+<li><a href="#sec:axes" id="toc-sec:axes">Mean over Axis 1 instead of
+Axis 0</a></li>
+<li><a href="#one-word-four-features"
+id="toc-one-word-four-features">One Word, Four Features</a></li>
+<li><a href="#baby-example-two-quizzes"
+id="toc-baby-example-two-quizzes">Baby Example: Two Quizzes</a>
+<ul>
+<li><a href="#batch-norm" id="toc-batch-norm">Batch norm</a></li>
+<li><a href="#layer-norm" id="toc-layer-norm">Layer norm</a></li>
+</ul></li>
+<li><a href="#the-same-numbers-as-word-vectors"
+id="toc-the-same-numbers-as-word-vectors">The Same Numbers as Word
+Vectors</a>
+<ul>
+<li><a href="#layer-norm-the-one-a-transformer-uses"
+id="toc-layer-norm-the-one-a-transformer-uses">Layer norm, the one a
+transformer uses</a></li>
+<li><a href="#batch-norm-on-these-same-vectors"
+id="toc-batch-norm-on-these-same-vectors">Batch norm on these same
+vectors</a></li>
+</ul></li>
+<li><a href="#where-batch-normalization-is-used"
+id="toc-where-batch-normalization-is-used">Where Batch Normalization Is
+Used</a></li>
+<li><a href="#sec:ffn" id="toc-sec:ffn">The Position-Wise Feed-Forward
+Network</a>
+<ul>
+<li><a href="#why-it-is-pointwise" id="toc-why-it-is-pointwise">Why it
+is pointwise</a></li>
+<li><a href="#what-is-different-from-a-traditional-mlp"
+id="toc-what-is-different-from-a-traditional-mlp">What is different from
+a traditional MLP</a></li>
+</ul></li>
+<li><a href="#sec:pre-post" id="toc-sec:pre-post">Pre-Layer Norm and
+Post-Layer Norm</a>
+<ul>
+<li><a href="#what-the-placement-changes"
+id="toc-what-the-placement-changes">What the placement changes</a></li>
+</ul></li>
+<li><a href="#sec:subquadratic" id="toc-sec:subquadratic">Efficient and
+Sub-Quadratic Attention</a>
+<ul>
+<li><a href="#the-feed-forward-network-is-often-the-larger-bill"
+id="toc-the-feed-forward-network-is-often-the-larger-bill">The
+feed-forward network is often the larger bill</a></li>
+<li><a href="#flash-attention-stores-less-and-still-scores-every-pair"
+id="toc-flash-attention-stores-less-and-still-scores-every-pair">Flash
+Attention stores less, and still scores every pair</a></li>
+<li><a href="#sec:local" id="toc-sec:local">Local
+self-attention</a></li>
+</ul></li>
+<li><a href="#sec:gqa" id="toc-sec:gqa">Grouped-Query Attention</a>
+<ul>
+<li><a href="#one-starting-point-for-all-three"
+id="toc-one-starting-point-for-all-three">One starting point for all
+three</a></li>
+<li><a href="#what-each-method-is-allowed-to-read"
+id="toc-what-each-method-is-allowed-to-read">What each method is allowed
+to read</a></li>
+</ul></li>
+<li><a href="#sec:encoder-only" id="toc-sec:encoder-only">Encoder-Only
+Transformers</a>
+<ul>
+<li><a href="#three-supervised-uses"
+id="toc-three-supervised-uses">Three supervised uses</a></li>
+<li><a href="#application-intuition-when-an-encoder-is-enough"
+id="toc-application-intuition-when-an-encoder-is-enough">Application
+intuition: when an encoder is enough</a></li>
+<li><a href="#what-the-encoder-is-trained-to-predict"
+id="toc-what-the-encoder-is-trained-to-predict">What the encoder is
+trained to predict</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="layer-normalization">Layer Normalization</h1>
+<p>Self-attention, position encodings, and multi-head attention are
+already in the Lecture 7 notes. The new piece in the transformer is
+layer normalization <span class="citation"
+data-cites="ba2016layer"></span>. It plays the same role batch
+normalization played in a convolutional network: keep the scale of
+activations from drifting as they pass through the model. The
+calculation uses a different group of numbers.</p>
+<p><strong>One-line picture.</strong> Batch norm curves one quiz using
+every student. Layer norm curves one student using every quiz. In a
+transformer, the student is one word and the quiz scores are the entries
+of that word’s vector.</p>
+<h4 id="definition.">Definition.</h4>
+<p>Given a length-<span class="math inline">\(T\)</span> sequence <span
+class="math inline">\(\mathbf{h}_1,\ldots,\mathbf{h}_T\in\mathbb{R}^d\)</span>,
+layer normalization computes, at each position <span
+class="math inline">\(t\)</span>, the mean and standard deviation over
+that position’s <span class="math inline">\(d\)</span> features, <span
+class="math display">\[\mu_t
+  =
+  \frac{1}{d}\sum_{i=1}^{d} h_{t,i},
+  \qquad
+  \sigma_t
+  =
+  \sqrt{\frac{1}{d}\sum_{i=1}^{d}(h_{t,i}-\mu_t)^2},\]</span> and
+outputs <span
+class="math display">\[\operatorname{layernorm}(\mathbf{h})_t
+  =
+  \boldsymbol{\gamma}
+  \odot
+  \frac{\mathbf{h}_t-\mu_t}{\sigma_t}
+  +
+  \boldsymbol{\beta}.\]</span> The vectors <span
+class="math inline">\(\boldsymbol{\gamma}\)</span> and <span
+class="math inline">\(\boldsymbol{\beta}\)</span> are learned. They let
+the model stretch and shift the normalized vector, so the layer is
+allowed to leave the “mean <span class="math inline">\(0\)</span>,
+spread <span class="math inline">\(1\)</span>” result behind if that is
+too strict. In every baby example below they are <span
+class="math inline">\(1\)</span> and <span
+class="math inline">\(0\)</span>, so the normalized numbers are the
+final output.</p>
+<p>Batch normalization, for comparison, standardizes each feature using
+the mean and variance of the current batch and then applies the same
+kind of learned scale and shift <span class="citation"
+data-cites="ioffe2015batch"></span>: <span
+class="math display">\[\operatorname{BN}(\mathbf{x})
+  =
+  \boldsymbol{\gamma}
+  \odot
+  \frac{\mathbf{x}-\boldsymbol{\mu}_B}{\boldsymbol{\sigma}_B+\epsilon}
+  +
+  \boldsymbol{\beta}.\]</span> Here <span
+class="math inline">\(\boldsymbol{\mu}_B\)</span> and <span
+class="math inline">\(\boldsymbol{\sigma}_B\)</span> run over the
+examples in the batch, one number per feature, and <span
+class="math inline">\(\epsilon\)</span> is a small constant that keeps
+the division safe when the spread is tiny. The baby arithmetic below
+uses spreads of exactly <span class="math inline">\(1\)</span>, so <span
+class="math inline">\(\epsilon\)</span> does not change the displayed
+digits.</p>
+<h1 id="sec:hti">What <span class="math inline">\(h_{t,i}\)</span>
+Is</h1>
+<p>A sequence is a list of word vectors. Stack the words as the rows of
+a table. The row number is the position <span
+class="math inline">\(t\)</span>. The column number is the feature <span
+class="math inline">\(i\)</span>. The symbol <span
+class="math inline">\(h_{t,i}\)</span> is the single number sitting in
+row <span class="math inline">\(t\)</span>, column <span
+class="math inline">\(i\)</span>.</p>
+<p>Take the two-word sequence “coffee cold.” Each word is a vector of
+length <span class="math inline">\(d=2\)</span>, so the sequence length
+is <span class="math inline">\(T=2\)</span>:</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: center;">feature <span
+class="math inline">\(i=1\)</span></th>
+<th style="text-align: center;">feature <span
+class="math inline">\(i=2\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><span class="math inline">\(t=1\)</span>,
+coffee</td>
+<td style="text-align: center;"><span
+class="math inline">\(h_{1,1}=0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(h_{1,2}=2\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;"><span class="math inline">\(t=2\)</span>,
+cold</td>
+<td style="text-align: center;"><span
+class="math inline">\(h_{2,1}=2\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(h_{2,2}=4\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The whole vector for a word is the row. Coffee is <span
+class="math inline">\(\mathbf{h}_1 = [h_{1,1},\, h_{1,2}] = [0,\;
+2]\)</span>. Cold is <span class="math inline">\(\mathbf{h}_2 = [2,\;
+4]\)</span>. One entry is only one cell: <span
+class="math inline">\(h_{1,1}=0\)</span> is coffee’s first feature, and
+<span class="math inline">\(h_{2,2}=4\)</span> is cold’s second
+feature.</p>
+<p>The sum in the layer-norm formula adds across one row, with <span
+class="math inline">\(t\)</span> held still and <span
+class="math inline">\(i\)</span> running: <span
+class="math display">\[\sum_{i=1}^{d} h_{1,i}
+  =
+  h_{1,1}+h_{1,2}
+  =
+  0+2.\]</span> That is coffee only. Cold’s row is a separate sum, <span
+class="math inline">\(h_{2,1}+h_{2,2}=2+4\)</span>.</p>
+<h1 id="sec:axes">Mean over Axis 1 instead of Axis 0</h1>
+<p>The same table has two directions.</p>
+<ul>
+<li><p><strong>Axis 0</strong> points down the rows: from coffee to
+cold. In a batch of separate examples this is the batch direction. On
+this sentence the rows are the two positions, so axis 0 points down the
+sequence.</p></li>
+<li><p><strong>Axis 1</strong> points across a row: from feature <span
+class="math inline">\(1\)</span> to feature <span
+class="math inline">\(2\)</span> inside one word.</p></li>
+</ul>
+<p>A mean has to choose one direction to collapse.</p>
+<p><strong>Mean over axis 0</strong> walks down a column. Feature <span
+class="math inline">\(1\)</span> is the column <span
+class="math inline">\([0,\; 2]\)</span>, and its mean is <span
+class="math inline">\(1\)</span>. Feature <span
+class="math inline">\(2\)</span> is the column <span
+class="math inline">\([2,\; 4]\)</span>, and its mean is <span
+class="math inline">\(3\)</span>. Coffee and cold are averaged together.
+That is the batch-norm direction: one feature, pooled over every
+row.</p>
+<p><strong>Mean over axis 1</strong> walks across a row. Coffee’s row
+<span class="math inline">\([0,\; 2]\)</span> has mean <span
+class="math inline">\(1\)</span>. Cold’s row <span
+class="math inline">\([2,\; 4]\)</span> has mean <span
+class="math inline">\(3\)</span>. The other word is not in the average.
+That is layer norm, and it is the sum written above divided by <span
+class="math inline">\(d=2\)</span>.</p>
+<p>Both spreads on this table equal <span
+class="math inline">\(1\)</span>, so dividing by the spread gives:</p>
+<div class="center">
+<table>
+<tbody>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: center;">after a mean on axis 0</td>
+<td style="text-align: center;">after a mean on axis 1</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: center;">(batch-norm direction)</td>
+<td style="text-align: center;">(layer norm)</td>
+</tr>
+<tr>
+<td style="text-align: left;">coffee</td>
+<td style="text-align: center;"><span class="math inline">\([-1,\;
+-1]\)</span></td>
+<td style="text-align: center;"><span class="math inline">\([-1,\;
+1]\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">cold</td>
+<td style="text-align: center;"><span class="math inline">\([1,\;
+1]\)</span></td>
+<td style="text-align: center;"><span class="math inline">\([-1,\;
+1]\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The line “we compute a mean over axis 1 instead of axis 0” is this
+swap and nothing more. Batch norm’s mean runs down the columns. Layer
+norm uses the same table and runs the mean across each row instead. In
+the formula, that is a mean over <span class="math inline">\(i\)</span>
+at a fixed <span class="math inline">\(t\)</span>, which is a mean over
+<span class="math inline">\(h_{t,1}, h_{t,2}, \ldots,
+h_{t,d}\)</span>.</p>
+<h1 id="one-word-four-features">One Word, Four Features</h1>
+<p>Take the word “cold” inside the sentence “the coffee was cold,” and
+suppose the vector that reaches layer norm is <span
+class="math display">\[\mathbf{h} = [2,\; 4,\; 4,\; 6].\]</span> Those
+four numbers are four learned features of that one word.</p>
+<p><span class="math display">\[\mu = \frac{2+4+4+6}{4} = 4,
+  \qquad
+  \sigma
+  =
+  \sqrt{\frac{(-2)^2+0^2+0^2+2^2}{4}}
+  =
+  \sqrt{2}.\]</span> <span
+class="math display">\[\frac{\mathbf{h}-\mu}{\sigma}
+  =
+  [-\sqrt{2},\; 0,\; 0,\; \sqrt{2}]
+  \approx
+  [-1.41,\; 0,\; 0,\; 1.41].\]</span> “Coffee” is normalized from its
+own four numbers. The other words in the sentence do not enter, and
+neither do the other sentences in the batch.</p>
+<h1 id="baby-example-two-quizzes">Baby Example: Two Quizzes</h1>
+<p>The same rule is easier to see with two students and two scores.
+Spelling is one feature; math is the other.</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Student</th>
+<th style="text-align: center;">Spelling</th>
+<th style="text-align: center;">Math</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">A</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">2</td>
+</tr>
+<tr>
+<td style="text-align: left;">B</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">4</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="batch-norm">Batch norm</h2>
+<p>Look down one column at a time, across the class.</p>
+<p>Spelling scores are <span class="math inline">\(0\)</span> and <span
+class="math inline">\(2\)</span>. Their average is <span
+class="math inline">\(1\)</span>, and each score sits exactly <span
+class="math inline">\(1\)</span> away from that average: <span
+class="math display">\[\text{A: }\frac{0-1}{1} = -1,
+  \qquad
+  \text{B: }\frac{2-1}{1} = 1.\]</span> Math scores are <span
+class="math inline">\(2\)</span> and <span
+class="math inline">\(4\)</span>. Average <span
+class="math inline">\(3\)</span>, same spread: <span
+class="math display">\[\text{A: }\frac{2-3}{1} = -1,
+  \qquad
+  \text{B: }\frac{4-3}{1} = 1.\]</span></p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Student</th>
+<th style="text-align: center;">Spelling</th>
+<th style="text-align: center;">Math</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">A</td>
+<td style="text-align: center;"><span
+class="math inline">\(-1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(-1\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">B</td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A’s spelling grade moved because of B’s spelling grade. A different
+classmate in the batch would change A’s curved spelling score, even if A
+wrote the same answers.</p>
+<h2 id="layer-norm">Layer norm</h2>
+<p>Look across one row at a time, using only that student’s own
+scores.</p>
+<p>Student A has <span class="math inline">\(0\)</span> and <span
+class="math inline">\(2\)</span>. Average <span
+class="math inline">\(1\)</span>, spread <span
+class="math inline">\(1\)</span>: <span
+class="math display">\[\frac{0-1}{1} = -1,
+  \qquad
+  \frac{2-1}{1} = 1.\]</span> Student B has <span
+class="math inline">\(2\)</span> and <span
+class="math inline">\(4\)</span>. Average <span
+class="math inline">\(3\)</span>, spread <span
+class="math inline">\(1\)</span>: <span
+class="math display">\[\frac{2-3}{1} = -1,
+  \qquad
+  \frac{4-3}{1} = 1.\]</span></p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Student</th>
+<th style="text-align: center;">Spelling</th>
+<th style="text-align: center;">Math</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">A</td>
+<td style="text-align: center;"><span
+class="math inline">\(-1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">B</td>
+<td style="text-align: center;"><span
+class="math inline">\(-1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Each student is compared only with themselves. B could be absent and
+A’s result would stay <span class="math inline">\(-1\)</span> and <span
+class="math inline">\(1\)</span>.</p>
+<h1 id="the-same-numbers-as-word-vectors">The Same Numbers as Word
+Vectors</h1>
+<p>Carry the quiz table into a transformer. Each word is one student.
+The two numbers inside its vector are its two quiz scores. A batch of
+two one-word sentences arrives at the normalization:</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Sentence</th>
+<th style="text-align: left;">Word</th>
+<th style="text-align: center;">Vector</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">coffee</td>
+<td style="text-align: center;"><span class="math inline">\([0,\;
+2]\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">2</td>
+<td style="text-align: left;">tea</td>
+<td style="text-align: center;"><span class="math inline">\([2,\;
+4]\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The two entries are two learned features of the word, for instance
+“how drink-like” and “how hot or cold.”</p>
+<h2 id="layer-norm-the-one-a-transformer-uses">Layer norm, the one a
+transformer uses</h2>
+<p>Each word is rescaled using only its own two numbers.</p>
+<p><strong>coffee</strong> <span class="math inline">\(= [0,\;
+2]\)</span>. Average <span class="math inline">\((0+2)/2 = 1\)</span>,
+spread <span class="math inline">\(1\)</span>: <span
+class="math display">\[\frac{0-1}{1} = -1,
+  \qquad
+  \frac{2-1}{1} = 1,
+  \qquad
+  \text{coffee becomes } [-1,\; 1].\]</span></p>
+<p><strong>tea</strong> <span class="math inline">\(= [2,\; 4]\)</span>.
+Average <span class="math inline">\((2+4)/2 = 3\)</span>, spread <span
+class="math inline">\(1\)</span>: <span
+class="math display">\[\frac{2-3}{1} = -1,
+  \qquad
+  \frac{4-3}{1} = 1,
+  \qquad
+  \text{tea becomes } [-1,\; 1].\]</span></p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Word</th>
+<th style="text-align: center;">Before</th>
+<th style="text-align: center;">After layer norm</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">coffee</td>
+<td style="text-align: center;"><span class="math inline">\([0,\;
+2]\)</span></td>
+<td style="text-align: center;"><span class="math inline">\([-1,\;
+1]\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">tea</td>
+<td style="text-align: center;"><span class="math inline">\([2,\;
+4]\)</span></td>
+<td style="text-align: center;"><span class="math inline">\([-1,\;
+1]\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>“Tea” never enters the arithmetic for “coffee.” In a longer sentence
+such as “the coffee was cold,” the same thing happens separately for
+every word. Inside the transformer block, this is the table that runs:
+one word vector in, one rescaled word vector out.</p>
+<h2 id="batch-norm-on-these-same-vectors">Batch norm on these same
+vectors</h2>
+<p>Batch norm takes one feature column down the batch.</p>
+<p>First column, the first number of each word: <span
+class="math inline">\(0\)</span> and <span
+class="math inline">\(2\)</span>. Average <span
+class="math inline">\(1\)</span>, spread <span
+class="math inline">\(1\)</span>. <span
+class="math display">\[\text{coffee: }\frac{0-1}{1} = -1,
+  \qquad
+  \text{tea: }\frac{2-1}{1} = 1.\]</span> Second column: <span
+class="math inline">\(2\)</span> and <span
+class="math inline">\(4\)</span>. Average <span
+class="math inline">\(3\)</span>, spread <span
+class="math inline">\(1\)</span>. <span
+class="math display">\[\text{coffee: }\frac{2-3}{1} = -1,
+  \qquad
+  \text{tea: }\frac{4-3}{1} = 1.\]</span></p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Word</th>
+<th style="text-align: center;">Before</th>
+<th style="text-align: center;">After batch norm</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">coffee</td>
+<td style="text-align: center;"><span class="math inline">\([0,\;
+2]\)</span></td>
+<td style="text-align: center;"><span class="math inline">\([-1,\;
+-1]\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">tea</td>
+<td style="text-align: center;"><span class="math inline">\([2,\;
+4]\)</span></td>
+<td style="text-align: center;"><span class="math inline">\([1,\;
+1]\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Here “coffee” changes because “tea” is sitting in the same batch.</p>
+<h1 id="where-batch-normalization-is-used">Where Batch Normalization Is
+Used</h1>
+<p>Batch normalization is the tool from Lecture 5, inside image models,
+and in particular inside a ResNet block <span class="citation"
+data-cites="he2016deep"></span>. The order in one block is</p>
+<ol>
+<li><p><span class="math inline">\(3\times 3\)</span> convolution, batch
+norm, ReLU;</p></li>
+<li><p><span class="math inline">\(3\times 3\)</span> convolution, batch
+norm;</p></li>
+<li><p>add the residual, then ReLU.</p></li>
+</ol>
+<p>The network also opens with a large <span
+class="math inline">\(7\times 7\)</span> convolution, then batch norm,
+then max pooling, and then a stack of those blocks.</p>
+<p>On an image, one activation is a volume: a batch of pictures, each
+with height, width, and channels. Batch norm keeps a separate mean and
+spread for each channel, and it computes them from every picture in the
+batch and every pixel in that channel. A “red-edge” channel is curved
+using all the red-edge responses in the batch, the same way the spelling
+quiz was curved using every student’s spelling score.</p>
+<p>At test time there may be no batch. The model then uses a running
+average of the means and spreads it collected during training.</p>
+<p>The quiz table already shows the uncomfortable part: one example’s
+output depends on the other examples in the batch. Lecture 5 records
+that dependence, and later models put layer norm in the corresponding
+slot. In the transformer, that slot is the per-word calculation
+above.</p>
+<h1 id="sec:ffn">The Position-Wise Feed-Forward Network</h1>
+<p>This follows the course lecture’s account of the transformer’s
+ingredients (<a
+href="https://r-three.github.io/deep-learning-lecture-notes/lectures/08-transformers-part-1.html">Lecture 8</a>).
+Inside a block, self-attention is the part that lets words look at each
+other. The feed-forward piece does a different job: it rewrites each
+word on its own.</p>
+<p>The original transformer uses one hidden layer and a ReLU <span
+class="citation" data-cites="vaswani2017attention"></span>, <span
+class="math display">\[\mathbf{h}_t
+  =
+  \mathbf{W}_2\,
+  \phi(\mathbf{W}_1 \mathbf{x}_t + \mathbf{b}_1)
+  +
+  \mathbf{b}_2.\]</span> <span
+class="math inline">\(\mathbf{W}_1\)</span> maps the <span
+class="math inline">\(d\)</span>-dimensional word up to a wider hidden
+vector, <span class="math inline">\(\phi\)</span> is applied entry by
+entry, and <span class="math inline">\(\mathbf{W}_2\)</span> maps back
+to <span class="math inline">\(d\)</span> dimensions. The same <span
+class="math inline">\(\mathbf{W}_1\)</span>, <span
+class="math inline">\(\mathbf{W}_2\)</span>, <span
+class="math inline">\(\mathbf{b}_1\)</span>, and <span
+class="math inline">\(\mathbf{b}_2\)</span> are used at every position,
+the same sharing pattern as <span
+class="math inline">\(\boldsymbol{\gamma}\)</span> and <span
+class="math inline">\(\boldsymbol{\beta}\)</span>: <span
+class="math inline">\(T\)</span> applications, one shared set of
+weights.</p>
+<h2 id="why-it-is-pointwise">Why it is pointwise</h2>
+<p>“Pointwise” means the function looks at one position and ignores the
+others. On the sentence “coffee cold,” the network reads <span
+class="math inline">\([0,\; 2]\)</span> by itself and <span
+class="math inline">\([2,\; 4]\)</span> by itself. Take <span
+class="math display">\[\mathbf{W}_1
+  =
+  \begin{pmatrix} 1 &amp; -1 \\ 0 &amp; 1 \end{pmatrix},
+  \qquad
+  \mathbf{b}_1=\mathbf{0},
+  \qquad
+  \phi=\operatorname{ReLU},
+  \qquad
+  \mathbf{W}_2=\mathbf{I},
+  \qquad
+  \mathbf{b}_2=\mathbf{0}.\]</span> Coffee <span
+class="math inline">\([0,\; 2]\)</span> is sent to <span
+class="math inline">\([-2,\; 2]\)</span>, and ReLU zeroes the negative
+entry, leaving <span class="math inline">\([0,\; 2]\)</span>. Cold <span
+class="math inline">\([2,\; 4]\)</span> is sent to <span
+class="math inline">\([-2,\; 4]\)</span>, and ReLU leaves <span
+class="math inline">\([0,\; 4]\)</span>. Cold’s output was computed
+without ever reading coffee’s numbers. Swap the two words and the two
+outputs swap with them. A third word would be passed through these same
+two matrices; the parameter count does not grow with <span
+class="math inline">\(T\)</span>.</p>
+<p>That is the useful split inside the block. Attention is where “cold”
+can pick up information from “coffee.” The feed-forward network is where
+each word, already mixed, is rewritten by a small MLP. Layer norm is the
+same kind of per-word step: shuffle the input words and the outputs
+shuffle in the same order.</p>
+<h2 id="what-is-different-from-a-traditional-mlp">What is different from
+a traditional MLP</h2>
+<p>The recipe inside one position is an ordinary MLP: linear layer,
+nonlinearity, linear layer. The difference is what counts as the
+input.</p>
+<p>A traditional MLP for the whole sentence flattens the rows into one
+long vector. “Coffee cold” becomes <span class="math inline">\([0,\;
+2,\; 2,\; 4]\)</span>, and one weight matrix connects every entry of
+that vector to every output. A single weight can carry coffee into
+cold’s output. With the weight <span class="math inline">\(5\)</span> on
+coffee’s second feature, that feature contributes <span
+class="math inline">\(5\cdot 2 = 10\)</span> to whichever output the
+weight feeds, including an output that is supposed to describe cold. The
+matrix also has shape tied to <span class="math inline">\(T\)</span>: a
+length-<span class="math inline">\(2\)</span> sentence and a
+length-<span class="math inline">\(3\)</span> sentence are different
+input sizes, so they do not share one matrix.</p>
+<p>The position-wise network has no such cross-word weight. Each
+application sees a vector of length <span
+class="math inline">\(d\)</span> only, and the matrices stay <span
+class="math inline">\(d\)</span> by <span
+class="math inline">\(d\)</span> (or <span
+class="math inline">\(d\)</span> by the hidden width) no matter how long
+the sentence is.</p>
+<h1 id="sec:pre-post">Pre-Layer Norm and Post-Layer Norm</h1>
+<p>This is the first of the block modifications in the same course
+lecture. The original transformer puts layer norm <em>after</em> the
+residual add. That arrangement is now called <strong>post-layer
+norm</strong>. The alternative, <strong>pre-layer norm</strong>, puts
+layer norm <em>before</em> the attention or the feed-forward network,
+and the residual add then wraps around both.</p>
+<p>Post-layer norm, the 2017 block <span class="citation"
+data-cites="vaswani2017attention"></span>: <span
+class="math display">\[\begin{align*}
+  \mathbf{h}
+  &amp;=
+  \operatorname{LN}\bigl(\mathbf{x} +
+\operatorname{MHSA}(\mathbf{x})\bigr),
+  \\
+  \mathbf{y}
+  &amp;=
+  \operatorname{LN}\bigl(\mathbf{h} +
+\operatorname{FFN}(\mathbf{h})\bigr).
+\end{align*}\]</span> The skip connection is added first, and layer norm
+sees the sum. The copy of <span
+class="math inline">\(\mathbf{x}\)</span> that skipped the attention has
+to pass through the layer norm before it leaves the block.</p>
+<p>Pre-layer norm: <span class="math display">\[\begin{align*}
+  \mathbf{h}
+  &amp;=
+  \mathbf{x} +
+\operatorname{MHSA}\bigl(\operatorname{LN}(\mathbf{x})\bigr),
+  \\
+  \mathbf{y}
+  &amp;=
+  \mathbf{h} +
+\operatorname{FFN}\bigl(\operatorname{LN}(\mathbf{h})\bigr).
+\end{align*}\]</span> Layer norm is applied to the input of the
+attention, or of the feed-forward network. The skip adds the original
+vector after that update has been computed. Stacked from the embeddings
+to the output, those skips form a path with nothing on it: no attention,
+no feed-forward network, and no layer norm. The course lecture calls
+this the uninterrupted residual stream.</p>
+<p>The add is legal with no extra projection because the block is built
+so that every piece preserves the width <span
+class="math inline">\(d_{\text{model}}\)</span>: multi-head attention,
+layer norm, and the feed-forward network all map <span
+class="math inline">\(\mathbb{R}^{d}\)</span> to <span
+class="math inline">\(\mathbb{R}^{d}\)</span>.</p>
+<h2 id="what-the-placement-changes">What the placement changes</h2>
+<p>Along the pre-layer-norm skip, the gradient from the output back to
+the input is the identity on that path. Deep stacks can still send a
+learning signal to early blocks when the attention and the feed-forward
+branch are difficult to differentiate. The course lecture is careful
+about the strength of that claim: which placement trains better depends
+on initialization, the optimizer, and the other hyperparameters, so it
+is not a settled comparison. Pre-layer norm is the more common choice in
+current models. A transformer built with the original post-layer-norm
+block still works.</p>
+<p>The other reading is about what the network is doing to the sentence.
+With pre-layer norm, the running vectors start as the word embeddings.
+Each block computes an update from a normalized copy and adds that
+update back. The representation is revised in place, rather than being
+replaced by a freshly normalized sum at every block.</p>
+<h1 id="sec:subquadratic">Efficient and Sub-Quadratic Attention</h1>
+<p>This follows the course lecture’s section on efficient
+self-attention. Full self-attention scores every word against every
+word. A sentence of length <span class="math inline">\(T\)</span>
+therefore builds a <span class="math inline">\(T\times T\)</span> score
+matrix: <span class="math inline">\(T^2\)</span> dot products. For “the
+coffee was cold,” <span class="math inline">\(T=4\)</span>, that is
+<span class="math inline">\(16\)</span> dots. For a <span
+class="math inline">\(1000\)</span>-word document it is <span
+class="math inline">\(1000^2 = 10^6\)</span> dots in every head of every
+block.</p>
+<p>The lecture gives two reasons this quadratic bill is often left
+alone, and then the simple change that actually reduces it: local
+self-attention.</p>
+<h2 id="the-feed-forward-network-is-often-the-larger-bill">The
+feed-forward network is often the larger bill</h2>
+<p>Count multiplies in one block, with width <span
+class="math inline">\(d\)</span> and feed-forward width <span
+class="math inline">\(d_{\mathrm{ff}}\)</span>. The feed-forward network
+applies two matrices at each of the <span
+class="math inline">\(T\)</span> positions, about <span
+class="math inline">\(2\,T\,d\,d_{\mathrm{ff}}\)</span> multiplies.
+Score-and-average attention, with the head widths adding up to <span
+class="math inline">\(d\)</span>, is about <span
+class="math inline">\(2\,T^2 d\)</span> multiplies.</p>
+<p>Take the lecture’s regime, <span class="math inline">\(d=256\)</span>
+and <span class="math inline">\(d_{\mathrm{ff}}=4d=1024\)</span>: <span
+class="math display">\[\begin{align*}
+  \text{feed-forward}
+  &amp;\approx 2\cdot T\cdot 256\cdot 1024 = 524288\,T,\\
+  \text{attention}
+  &amp;\approx 2\cdot T^2\cdot 256 = 512\,T^2.
+\end{align*}\]</span> At <span class="math inline">\(T=256\)</span>, the
+feed-forward count is four times the attention count. The two meet near
+<span class="math inline">\(T\approx 1024\)</span>. Past that, attention
+is the larger bill. The lecture’s statement that the quadratic term is
+not the main cost for modest lengths, roughly <span
+class="math inline">\(T&lt;1000\)</span>, is this comparison. These
+counts are the big matrix products only; they are not a full account of
+hardware time.</p>
+<h2 id="flash-attention-stores-less-and-still-scores-every-pair">Flash
+Attention stores less, and still scores every pair</h2>
+<p>The other quadratic cost is memory. Writing down every score, for
+<span class="math inline">\(L\)</span> blocks and <span
+class="math inline">\(H\)</span> heads, is <span
+class="math inline">\(L\cdot H\cdot T\cdot T\)</span> numbers. On a GPU
+the expensive part is moving those numbers between the large memory and
+the small on-chip memory. <strong>Flash Attention</strong> still
+computes every query–key dot product, block by block, and keeps a
+running softmax so the full <span class="math inline">\(T\times
+T\)</span> matrix is never stored <span class="citation"
+data-cites="dao2022flashattention"></span>. The arithmetic stays
+quadratic. The stored working set does not.</p>
+<p>One query, four keys, scores <span class="math inline">\([0,\;\ln
+2,\;0,\;\ln 2]\)</span>. The full softmax uses <span
+class="math inline">\(\mathrm{e}^{0}=1\)</span> and <span
+class="math inline">\(\mathrm{e}^{\ln 2}=2\)</span>, so the weights are
+<span class="math display">\[\frac{[1,\;2,\;1,\;2]}{6}
+  =
+  \Bigl[\tfrac{1}{6},\;\tfrac{2}{6},\;\tfrac{1}{6},\;\tfrac{2}{6}\Bigr].\]</span>
+The running version sees the scores in two blocks of two and only
+remembers a running maximum <span class="math inline">\(m\)</span> and a
+running sum <span class="math inline">\(\ell\)</span> of <span
+class="math inline">\(\mathrm{e}^{s-m}\)</span>.</p>
+<p>Block <span class="math inline">\([0,\;\ln 2]\)</span>: <span
+class="math inline">\(m=\ln 2\)</span>, and <span
+class="math inline">\(\ell=\mathrm{e}^{0-\ln
+2}+\mathrm{e}^{0}=\tfrac{1}{2}+1=\tfrac{3}{2}\)</span>. The second block
+is the same, so the new maximum is still <span class="math inline">\(\ln
+2\)</span> and the sums add, <span
+class="math inline">\(\ell=\tfrac{3}{2}+\tfrac{3}{2}=3\)</span>. A
+weight is <span class="math inline">\(\mathrm{e}^{s-m}/\ell\)</span>:
+the score <span class="math inline">\(0\)</span> gives <span
+class="math inline">\((\tfrac{1}{2})/3=\tfrac{1}{6}\)</span>, and the
+score <span class="math inline">\(\ln 2\)</span> gives <span
+class="math inline">\(1/3=\tfrac{2}{6}\)</span>. Same weights as the
+full softmax. The four scores never had to sit in memory together. If
+the second block had contained a larger score, the old <span
+class="math inline">\(\ell\)</span> would be multiplied by <span
+class="math inline">\(\mathrm{e}^{m_{\mathrm{old}}-m_{\mathrm{new}}}\)</span>
+before the new block was added, which is what keeps the result
+exact.</p>
+<h2 id="sec:local">Local self-attention</h2>
+<p>When the document really is long, the lecture’s simplest cut is
+<strong>local self-attention</strong>: position <span
+class="math inline">\(t\)</span> scores only a window of width <span
+class="math inline">\(K\)</span> around itself. The score matrix is a
+band around the diagonal. The dot-product count drops from <span
+class="math inline">\(T^2\)</span> to about <span
+class="math inline">\(K T\)</span>. For <span
+class="math inline">\(T=1000\)</span> and <span
+class="math inline">\(K=64\)</span> that is <span
+class="math inline">\(64000\)</span> dots in place of <span
+class="math inline">\(10^6\)</span>.</p>
+<h4 id="baby-sentence.">Baby sentence.</h4>
+<p>Four words, values <span
+class="math inline">\(\mathbf{v}=[1,\;3,\;5,\;7]\)</span> for “the
+coffee was cold,” and a window of radius <span
+class="math inline">\(1\)</span>: each word may look at itself and its
+immediate neighbors. Inside this first pass every allowed score is <span
+class="math inline">\(0\)</span>, so the softmax is uniform on the
+window. The band is</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">query <span
+class="math inline">\(\backslash\)</span> key</th>
+<th style="text-align: center;">the</th>
+<th style="text-align: center;">coffee</th>
+<th style="text-align: center;">was</th>
+<th style="text-align: center;">cold</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">the</td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">coffee</td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">was</td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">cold</td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(0\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(1\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Ten scores are computed, rather than sixteen. The outputs are
+averages of the values inside each row: <span
+class="math display">\[\begin{align*}
+  \text{the}    &amp;= \tfrac{1+3}{2} = 2,\\
+  \text{coffee} &amp;= \tfrac{1+3+5}{3} = 3,\\
+  \text{was}    &amp;= \tfrac{3+5+7}{3} = 5,\\
+  \text{cold}   &amp;= \tfrac{5+7}{2} = 6.
+\end{align*}\]</span> “Cold” reads “was” and “cold” only. The value
+<span class="math inline">\(1\)</span> on “the” is absent from <span
+class="math inline">\(6\)</span>.</p>
+<h4 id="the-weights-inside-the-window-still-come-from-the-words.">The
+weights inside the window still come from the words.</h4>
+<p>Replace “the”’s two scores by <span class="math inline">\([\ln
+2,\;0]\)</span>. The weights become <span
+class="math inline">\(\tfrac{2}{3}\)</span> and <span
+class="math inline">\(\tfrac{1}{3}\)</span>, and the output becomes
+<span class="math display">\[\tfrac{2}{3}\cdot 1 + \tfrac{1}{3}\cdot 3 =
+\tfrac{5}{3},\]</span> instead of the flat average <span
+class="math inline">\(2\)</span>. A convolution would apply one fixed
+kernel at every window, with no query and no key. Local attention is a
+softmax over dot products, restricted to the band. The band is what it
+shares with a convolution; the content-dependent weights are the
+difference.</p>
+<h4 id="path-length.">Path length.</h4>
+<p>Global attention gives every word a direct look at every other word,
+so “the” can affect “cold” in one layer. In the band above, “the”
+affects “coffee” in one layer, “was” only on the next layer (when “was”
+reads “coffee”’s new vector), and “cold” on the layer after that. The
+number of layers grows with the distance, as it does in a convolutional
+stack. A common repair, stated in the lecture, is to keep most blocks
+local and insert an occasional block with the full <span
+class="math inline">\(T\times T\)</span> matrix, so a long jump is
+available without paying for it at every layer.</p>
+<h1 id="sec:gqa">Grouped-Query Attention</h1>
+<p>Multi-head attention gives every head its own queries, keys, and
+values. The course lecture then describes two reductions.
+<strong>Multi-query attention</strong> keeps a separate query per head
+and shares one key projection and one value projection across all heads
+<span class="citation" data-cites="shazeer2019fast"></span>.
+<strong>Grouped-query attention</strong> sits between that and ordinary
+multi-head attention: <span class="math inline">\(G\)</span> groups of
+keys and values, with <span class="math inline">\(G\)</span> dividing
+the number of heads <span class="math inline">\(H\)</span>, and still
+one query per head <span class="citation"
+data-cites="ainslie2023gqa"></span>. <span
+class="math inline">\(G=1\)</span> is multi-query attention. <span
+class="math inline">\(G=H\)</span> is ordinary multi-head attention.</p>
+<p>The saving the lecture emphasizes is memory traffic, especially when
+past keys and values are kept for word-by-word generation (Lecture 9).
+Fewer distinct key and value vectors means fewer vectors to store and to
+move. Sharing every head’s keys, the <span
+class="math inline">\(G=1\)</span> end, is a strong constraint and can
+hurt quality slightly. A middle <span class="math inline">\(G\)</span>
+keeps most of the saving and less of that loss.</p>
+<h2 id="one-starting-point-for-all-three">One starting point for all
+three</h2>
+<p>Two words, “coffee” at position <span
+class="math inline">\(1\)</span> and “cold” at position <span
+class="math inline">\(2\)</span>. Four heads, and every query at
+position <span class="math inline">\(1\)</span> is <span
+class="math inline">\(q=1\)</span>. Keys and values are scalars, so
+<span class="math inline">\(\sqrt{d_k}=1\)</span> and a score is the
+product <span class="math inline">\(q\,k\)</span>. Multi-head attention
+gives each head a private memory. That memory is the starting point.
+Grouped-query and multi-query attention keep these same queries and only
+tie some of the memories together.</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Head</th>
+<th style="text-align: center;">keys (coffee, cold)</th>
+<th style="text-align: center;">values (coffee, cold)</th>
+<th style="text-align: center;">name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;"><span class="math inline">\([\ln 2,\;
+0]\)</span></td>
+<td style="text-align: center;"><span class="math inline">\([3,\;
+6]\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(M_1\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;"><span class="math inline">\([0,\; \ln
+2]\)</span></td>
+<td style="text-align: center;"><span class="math inline">\([0,\;
+9]\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(M_2\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;"><span class="math inline">\([\ln 2,\;
+0]\)</span></td>
+<td style="text-align: center;"><span class="math inline">\([6,\;
+3]\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(M_3\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;"><span class="math inline">\([0,\; \ln
+2]\)</span></td>
+<td style="text-align: center;"><span class="math inline">\([9,\;
+0]\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(M_4\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Head 1 against <span class="math inline">\(M_1\)</span>: scores <span
+class="math inline">\([1\cdot\ln 2,\; 1\cdot 0]=[\ln 2,\; 0]\)</span>,
+weights <span
+class="math inline">\(\bigl(\tfrac{2}{3},\,\tfrac{1}{3}\bigr)\)</span>,
+output <span class="math display">\[\tfrac{2}{3}\cdot 3 +
+\tfrac{1}{3}\cdot 6 = 4.\]</span> Head 2 against its own <span
+class="math inline">\(M_2\)</span>: scores <span
+class="math inline">\([0,\;\ln 2]\)</span>, weights <span
+class="math inline">\(\bigl(\tfrac{1}{3},\,\tfrac{2}{3}\bigr)\)</span>,
+output <span class="math display">\[\tfrac{1}{3}\cdot 0 +
+\tfrac{2}{3}\cdot 9 = 6.\]</span> Head 3 against <span
+class="math inline">\(M_3\)</span> has the same keys as head 1, so the
+same weights <span
+class="math inline">\(\bigl(\tfrac{2}{3},\,\tfrac{1}{3}\bigr)\)</span>,
+and different values: <span class="math inline">\(\tfrac{2}{3}\cdot 6 +
+\tfrac{1}{3}\cdot 3 = 5\)</span>. Head 4 against <span
+class="math inline">\(M_4\)</span> has the same keys as head 2, so the
+same weights <span
+class="math inline">\(\bigl(\tfrac{1}{3},\,\tfrac{2}{3}\bigr)\)</span>,
+and output <span class="math inline">\(\tfrac{1}{3}\cdot 9 +
+\tfrac{2}{3}\cdot 0 = 3\)</span>. Four private memories, four outputs:
+<span class="math inline">\(4,\;6,\;5,\;3\)</span>.</p>
+<h2 id="what-each-method-is-allowed-to-read">What each method is allowed
+to read</h2>
+<p>The queries stay <span class="math inline">\(q=1\)</span> on every
+head. The methods differ only in which memory a head may use.</p>
+<ul>
+<li><p><strong>Multi-head</strong> (<span
+class="math inline">\(G=H=4\)</span>): head <span
+class="math inline">\(h\)</span> reads <span
+class="math inline">\(M_h\)</span>.</p></li>
+<li><p><strong>Grouped-query</strong> (<span
+class="math inline">\(G=2\)</span>): heads <span
+class="math inline">\(1\)</span> and <span
+class="math inline">\(2\)</span> both read <span
+class="math inline">\(M_1\)</span>; heads <span
+class="math inline">\(3\)</span> and <span
+class="math inline">\(4\)</span> both read <span
+class="math inline">\(M_3\)</span>. The memories <span
+class="math inline">\(M_2\)</span> and <span
+class="math inline">\(M_4\)</span> are dropped.</p></li>
+<li><p><strong>Multi-query</strong> (<span
+class="math inline">\(G=1\)</span>): all four heads read <span
+class="math inline">\(M_1\)</span>. The memories <span
+class="math inline">\(M_2\)</span>, <span
+class="math inline">\(M_3\)</span>, and <span
+class="math inline">\(M_4\)</span> are dropped.</p></li>
+</ul>
+<p>Head 2 under grouped-query attention therefore recomputes head 1’s
+arithmetic and outputs <span class="math inline">\(4\)</span>, where
+multi-head attention had given it <span
+class="math inline">\(6\)</span>. Head 4 recomputes head 3’s arithmetic
+and outputs <span class="math inline">\(5\)</span>, where multi-head
+attention had given it <span class="math inline">\(3\)</span>.
+Multi-query attention sends heads <span class="math inline">\(3\)</span>
+and <span class="math inline">\(4\)</span> to <span
+class="math inline">\(M_1\)</span> as well, so they output <span
+class="math inline">\(4\)</span> too.</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Head</th>
+<th style="text-align: left;">Multi-head</th>
+<th style="text-align: left;">Grouped-query</th>
+<th style="text-align: left;">Multi-query</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: left;"><span class="math inline">\(M_1\to
+4\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(M_1\to
+4\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(M_1\to
+4\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">2</td>
+<td style="text-align: left;"><span class="math inline">\(M_2\to
+6\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(M_1\to
+4\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(M_1\to
+4\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><span class="math inline">\(M_3\to
+5\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(M_3\to
+5\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(M_1\to
+4\)</span></td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: left;"><span class="math inline">\(M_4\to
+3\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(M_3\to
+5\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(M_1\to
+4\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Reading across a row is the contrast. Head 1 is untouched, because
+every method keeps <span class="math inline">\(M_1\)</span>. Head 2
+changes as soon as a method makes it share with head 1. Heads <span
+class="math inline">\(3\)</span> and <span
+class="math inline">\(4\)</span> still have their own group under
+grouped-query attention, and both collapse onto <span
+class="math inline">\(M_1\)</span> only under multi-query attention. The
+lecture’s remark that sharing every key and value is a strong assumption
+is this last column: one memory, and every head emits <span
+class="math inline">\(4\)</span>.</p>
+<p>For <span class="math inline">\(T=2\)</span>, the number of stored
+key vectors, and likewise value vectors, is <span
+class="math inline">\(H\)</span> or <span
+class="math inline">\(G\)</span> per position:</p>
+<div class="center">
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: center;">key vectors</th>
+<th style="text-align: center;">value vectors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">multi-head, <span
+class="math inline">\(G=4\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(4\cdot
+2=8\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(8\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">grouped-query, <span
+class="math inline">\(G=2\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(2\cdot
+2=4\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(4\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">multi-query, <span
+class="math inline">\(G=1\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(1\cdot
+2=2\)</span></td>
+<td style="text-align: center;"><span
+class="math inline">\(2\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The query side does not shrink. Four heads still mean four queries at
+each position, in all three columns.</p>
+<h1 id="sec:encoder-only">Encoder-Only Transformers</h1>
+<p>This follows the course lecture’s encoder-only section. The original
+transformer is an encoder–decoder. The simplest use of the block keeps
+only the encoder half: the same layer, repeated <span
+class="math inline">\(L\)</span> times. A length-<span
+class="math inline">\(T\)</span> sequence goes in and a length-<span
+class="math inline">\(T\)</span> sequence comes out, one vector per
+input position. It cannot emit a new sentence of a different length. The
+lecture uses that one-to-one shape for three supervised tasks.</p>
+<h2 id="three-supervised-uses">Three supervised uses</h2>
+<p><strong>Sequence classification.</strong> Append a
+<strong>CLS</strong> position, as in “the coffee was cold
+<code>[CLS]</code>.” Run the stack. The vector at <code>[CLS]</code> is
+a summary of the whole sentence, the role the final hidden state played
+for an RNN classifier. A linear classifier reads only that vector.
+Suppose it produces two scores, complaint <span
+class="math inline">\(=2\)</span> and other <span
+class="math inline">\(=0\)</span>. Softmax turns them into probabilities
+proportional to <span class="math inline">\(\mathrm{e}^{2}\)</span> and
+<span class="math inline">\(\mathrm{e}^{0}=1\)</span>: <span
+class="math display">\[P(\text{complaint})
+  =
+  \frac{\mathrm{e}^{2}}{\mathrm{e}^{2}+1},
+  \qquad
+  P(\text{other})
+  =
+  \frac{1}{\mathrm{e}^{2}+1}.\]</span> The training target is one of
+those two classes. For a review that a person marked as a complaint, the
+target is complaint. That mark is a human label, so this training step
+is supervised.</p>
+<p><strong>Sequence labeling.</strong> One label per position. On the
+same sentence a person, or a tagged corpus, can supply <span
+class="math display">\[\text{the/DET},\
+  \text{coffee/NOUN},\
+  \text{was/VERB},\
+  \text{cold/ADJ}.\]</span> Each output vector is classified on its own.
+The loss is a sum of per-position cross-entropies against those tags.
+Supervised again: the tags are the annotation.</p>
+<p><strong>Span extraction.</strong> The input is a question followed by
+a context paragraph, and the answer is a stretch of that paragraph. Each
+output position is classified as the start of the answer, the end, or
+neither. The lecture’s picture is “when was so-and-so born?” in front of
+a sentence that contains “1953”: the target marks the start and the end
+of “1953.” Nothing new is written; a region of the input is named. The
+start and end marks are human labels.</p>
+<h2 id="application-intuition-when-an-encoder-is-enough">Application
+intuition: when an encoder is enough</h2>
+<p>The encoder-only stack is a bidirectional reader. Every output
+position already saw every input position, so it is a good fit when the
+job is to <em>understand</em> a fixed text and attach a decision to
+it—not when the job is to <em>write</em> a longer answer that was never
+in the input.</p>
+<h4 id="one-label-for-the-whole-document.">One label for the whole
+document.</h4>
+<p>News topic classification is the running picture. A headline and a
+short blurb—“Ford to Offer Sirius on More Vehicles” plus the body—should
+map to Business, not Sports. That is exactly sequence classification
+with a <code>[CLS]</code> (or pooled) vector and a small linear head
+with four logits. Sentiment on a review, spam versus ham on an email,
+and “is this medical abstract about oncology?” are the same shape: one
+document in, one class out. The homework’s AG News fine-tune of TinyBERT
+or MobileBERT is this application in miniature.</p>
+<h4 id="one-label-per-word.">One label per word.</h4>
+<p>Named-entity recognition—mark which tokens are people, places, or
+organizations—is sequence labeling. So is part-of-speech tagging. The
+encoder still runs once over the sentence; the head is applied at every
+position. Intuition: the word “Washington” needs both left and right
+context (“… visited Washington last…” versus “Washington signed…”)
+before the tag is reliable, which is why a bidirectional encoder
+helps.</p>
+<h4 id="a-span-inside-the-input-not-a-new-sentence.">A span inside the
+input, not a new sentence.</h4>
+<p>Extractive question answering—“when was so-and-so born?” with the
+answer already sitting in the paragraph as “1953”—is span extraction.
+The model does not invent the year; it points at the start and end
+tokens. Highlighting the relevant sentence in a contract, or finding the
+price in a product page, is the same idea. Generation would be needed
+only if the answer had to be paraphrased or lengthened beyond a
+contiguous span.</p>
+<h4 id="fine-tuning-versus-a-frozen-encoder.">Fine-tuning versus a
+frozen encoder.</h4>
+<p>Two practical recipes use the same encoder-only idea.</p>
+<ul>
+<li><p><strong>Fine-tune the encoder and the head</strong> (Part 1 of
+the homework). Start from a pretrained TinyBERT or MobileBERT, attach a
+four-way classification head, and update almost all weights on AG News.
+The body adapts to news topics.</p></li>
+<li><p><strong>Freeze the encoder; train only a linear head</strong>
+(Part 2). A sentence transformer turns each article into a fixed vector;
+logistic regression learns <span
+class="math inline">\(W\mathbf{e}+\mathbf{b}\)</span> for the four
+topics. The body never moves. This is cheaper and works when the frozen
+embeddings already separate the classes; a raw encoder that was never
+trained as a sentence embedder often needs the fine-tune path
+instead.</p></li>
+</ul>
+<h4 id="what-encoder-only-is-not-for.">What encoder-only is not
+for.</h4>
+<p>Chat replies, translation into a differently ordered language, and
+summaries that must invent new wording are length-changing generation
+problems. Those need a decoder (or an encoder–decoder), which Lecture 9
+takes up. If the answer must be a string that is not a contiguous piece
+of the input, an encoder-only classifier or span head is the wrong
+tool.</p>
+<h2 id="what-the-encoder-is-trained-to-predict">What the encoder is
+trained to predict</h2>
+<p>The block does not choose the loss. The lecture trains this same
+encoder in two regimes, and only one of them asks a person for
+labels.</p>
+<p>The three tasks above are supervised. Someone has decided the class
+of the sentence, the tag of each word, or the start and end of the
+answer. The encoder’s <span class="math inline">\(T\)</span> vectors are
+the features, and a classifier is trained against those decisions.</p>
+<p>The other regime is the lecture’s pre-training, developed fully with
+BERT in the next part of the lecture <span class="citation"
+data-cites="devlin2019bert"></span>. Mask a word that is already in the
+sentence and ask the encoder to name it. “the coffee was
+<code>[MASK]</code>” has target <code>cold</code>, copied out of the
+original sentence before the mask was applied. The output at the mask
+position is a classifier over the vocabulary, the same kind of
+cross-entropy as the part-of-speech classifier, with one class per word
+type. The target was not written by an annotator. The lecture calls the
+source unlabeled text, meaning nobody was paid to label it, and calls
+this first stage pre-training. The supervised tasks above are the
+fine-tuning stage: start from those parameters, attach the complaint
+classifier or the tag classifier, and continue training on the smaller
+labeled set.</p>
+<p>So an encoder-only transformer is supervised when the target is a
+human decision about the sentence, and the pre-training target is a word
+the sentence already contained.</p>
+<div class="thebibliography">
+<p><span>9</span> J. L. Ba, J. R. Kiros, and G. E. Hinton. Layer
+Normalization. <em>arXiv:1607.06450</em>, 2016.</p>
+<p>S. Ioffe and C. Szegedy. Batch Normalization: Accelerating Deep
+Network Training by Reducing Internal Covariate Shift. <em>ICML</em>,
+2015.</p>
+<p>K. He, X. Zhang, S. Ren, and J. Sun. Deep Residual Learning for Image
+Recognition. <em>CVPR</em>, 2016.</p>
+<p>A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N.
+Gomez, Ł. Kaiser, and I. Polosukhin. Attention Is All You Need.
+<em>NeurIPS</em>, 2017.</p>
+<p>T. Dao, D. Y. Fu, S. Ermon, A. Rudra, and C. Ré. FlashAttention: Fast
+and Memory-Efficient Exact Attention with IO-Awareness.
+<em>NeurIPS</em>, 2022.</p>
+<p>N. Shazeer. Fast Transformer Decoding: One Write-Head is All You
+Need. <em>arXiv:1911.02150</em>, 2019.</p>
+<p>J. Ainslie, J. Lee-Thorp, M. de Jong, Y. Zemlyanskiy, F. Lebrón, and
+S. Sanghai. GQA: Training Generalized Multi-Query Transformer Models
+from Multi-Head Checkpoints. <em>EMNLP</em>, 2023.</p>
+<p>J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova. BERT: Pre-training
+of Deep Bidirectional Transformers for Language Understanding.
+<em>NAACL</em>, 2019.</p>
+      </article>
+      <details class="source-panel" open>
+        <summary>LaTeX source for this note (<code>lecture-08-transformers-part-1.tex</code>)</summary>
+        <div class="inner">
+          <p style="color:var(--muted);font-family:ui-sans-serif,system-ui,sans-serif;font-size:0.9rem">
+            The published note is maintained as LaTeX. The rendered text above is generated from this source; the full <code>.tex</code> is embedded below so the site showcases the note source directly (not a PDF viewer).
+          </p>
+          <pre id="tex-source">Loading LaTeX source…</pre>
+        </div>
+      </details>
+    </main>
+  </div>
+  <script>
+    fetch('./lecture-08-transformers-part-1.tex')
+      .then(r => r.text())
+      .then(t => { document.getElementById('tex-source').textContent = t; })
+      .catch(() => { document.getElementById('tex-source').textContent = 'Could not load lecture-08-transformers-part-1.tex'; });
+  </script>
+</body>
+</html>

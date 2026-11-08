@@ -1,0 +1,999 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\title{Lecture~8 Study Notes:\\Transformers, Part~1}
+\author{Deep Learning Notes\\
+\small Ground-up intuitions and worked examples\\[0.35em]
+\small Formation borrows heavily from the
+\href{https://r-three.github.io/deep-learning-lecture-notes/lectures/08-transformers-part-1.html}{original course website (CSC2516)}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+These notes are a first slice of \textbf{Lecture~8: Transformers, Part~1}.
+Still to come: removing biases, gated feed-forward networks, and the full
+BERT write-up. What is here so far is \textbf{layer normalization} set next
+to batch normalization, the \textbf{position-wise feed-forward network},
+\textbf{pre-} versus \textbf{post-layer norm}, \textbf{efficient and local
+attention}, \textbf{grouped-query attention}, and the \textbf{encoder-only
+transformer}---with application intuition for classification, labeling,
+span extraction, and fine-tuning versus frozen embeddings---with the baby
+examples kept for reference. Content formation borrows heavily
+from the original
+\href{https://r-three.github.io/deep-learning-lecture-notes/}{course website
+(CSC2516)}.
+\end{abstract}
+
+\tableofcontents
+\vspace{1em}
+
+%----------------------------------------------------------------------
+\section{Layer Normalization}
+%----------------------------------------------------------------------
+
+Self-attention, position encodings, and multi-head attention are already in
+the Lecture~7 notes. The new piece in the transformer is layer
+normalization \cite{ba2016layer}. It plays the same role batch normalization
+played in a convolutional network: keep the scale of activations from
+drifting as they pass through the model. The calculation uses a different
+group of numbers.
+
+\noindent\textbf{One-line picture.}
+Batch norm curves one quiz using every student. Layer norm curves one
+student using every quiz. In a transformer, the student is one word and the
+quiz scores are the entries of that word's vector.
+
+\paragraph{Definition.}
+Given a length-\(T\) sequence \(\mathbf{h}_1,\ldots,\mathbf{h}_T\in\mathbb{R}^d\),
+layer normalization computes, at each position \(t\), the mean and standard
+deviation over that position's \(d\) features,
+\[
+  \mu_t
+  =
+  \frac{1}{d}\sum_{i=1}^{d} h_{t,i},
+  \qquad
+  \sigma_t
+  =
+  \sqrt{\frac{1}{d}\sum_{i=1}^{d}(h_{t,i}-\mu_t)^2},
+\]
+and outputs
+\[
+  \operatorname{layernorm}(\mathbf{h})_t
+  =
+  \boldsymbol{\gamma}
+  \odot
+  \frac{\mathbf{h}_t-\mu_t}{\sigma_t}
+  +
+  \boldsymbol{\beta}.
+\]
+The vectors \(\boldsymbol{\gamma}\) and \(\boldsymbol{\beta}\) are learned.
+They let the model stretch and shift the normalized vector, so the layer is
+allowed to leave the ``mean \(0\), spread \(1\)'' result behind if that is
+too strict. In every baby example below they are \(1\) and \(0\), so the
+normalized numbers are the final output.
+
+Batch normalization, for comparison, standardizes each feature using the
+mean and variance of the current batch and then applies the same kind of
+learned scale and shift \cite{ioffe2015batch}:
+\[
+  \operatorname{BN}(\mathbf{x})
+  =
+  \boldsymbol{\gamma}
+  \odot
+  \frac{\mathbf{x}-\boldsymbol{\mu}_B}{\boldsymbol{\sigma}_B+\epsilon}
+  +
+  \boldsymbol{\beta}.
+\]
+Here \(\boldsymbol{\mu}_B\) and \(\boldsymbol{\sigma}_B\) run over the
+examples in the batch, one number per feature, and \(\epsilon\) is a small
+constant that keeps the division safe when the spread is tiny. The baby
+arithmetic below uses spreads of exactly \(1\), so \(\epsilon\) does not
+change the displayed digits.
+
+%----------------------------------------------------------------------
+\section{What \(h_{t,i}\) Is}
+\label{sec:hti}
+%----------------------------------------------------------------------
+
+A sequence is a list of word vectors. Stack the words as the rows of a
+table. The row number is the position \(t\). The column number is the
+feature \(i\). The symbol \(h_{t,i}\) is the single number sitting in row
+\(t\), column \(i\).
+
+Take the two-word sequence ``coffee cold.'' Each word is a vector of length
+\(d=2\), so the sequence length is \(T=2\):
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+ & feature \(i=1\) & feature \(i=2\) \\
+\midrule
+\(t=1\), coffee & \(h_{1,1}=0\) & \(h_{1,2}=2\) \\
+\(t=2\), cold & \(h_{2,1}=2\) & \(h_{2,2}=4\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The whole vector for a word is the row. Coffee is
+\(\mathbf{h}_1 = [h_{1,1},\, h_{1,2}] = [0,\; 2]\).
+Cold is \(\mathbf{h}_2 = [2,\; 4]\).
+One entry is only one cell: \(h_{1,1}=0\) is coffee's first feature, and
+\(h_{2,2}=4\) is cold's second feature.
+
+The sum in the layer-norm formula adds across one row, with \(t\) held
+still and \(i\) running:
+\[
+  \sum_{i=1}^{d} h_{1,i}
+  =
+  h_{1,1}+h_{1,2}
+  =
+  0+2.
+\]
+That is coffee only. Cold's row is a separate sum,
+\(h_{2,1}+h_{2,2}=2+4\).
+
+%----------------------------------------------------------------------
+\section{Mean over Axis 1 instead of Axis 0}
+\label{sec:axes}
+%----------------------------------------------------------------------
+
+The same table has two directions.
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Axis 0} points down the rows: from coffee to cold. In a
+        batch of separate examples this is the batch direction. On this
+        sentence the rows are the two positions, so axis 0 points down the
+        sequence.
+  \item \textbf{Axis 1} points across a row: from feature \(1\) to feature
+        \(2\) inside one word.
+\end{itemize}
+
+A mean has to choose one direction to collapse.
+
+\textbf{Mean over axis 0} walks down a column. Feature \(1\) is the column
+\([0,\; 2]\), and its mean is \(1\). Feature \(2\) is the column
+\([2,\; 4]\), and its mean is \(3\). Coffee and cold are averaged together.
+That is the batch-norm direction: one feature, pooled over every row.
+
+\textbf{Mean over axis 1} walks across a row. Coffee's row \([0,\; 2]\) has
+mean \(1\). Cold's row \([2,\; 4]\) has mean \(3\). The other word is not
+in the average. That is layer norm, and it is the sum written above divided
+by \(d=2\).
+
+Both spreads on this table equal \(1\), so dividing by the spread gives:
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+ & after a mean on axis 0 & after a mean on axis 1 \\
+ & (batch-norm direction) & (layer norm) \\
+\midrule
+coffee & \([-1,\; -1]\) & \([-1,\; 1]\) \\
+cold & \([1,\; 1]\) & \([-1,\; 1]\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The line ``we compute a mean over axis 1 instead of axis 0'' is this swap
+and nothing more. Batch norm's mean runs down the columns. Layer norm uses
+the same table and runs the mean across each row instead. In the formula,
+that is a mean over \(i\) at a fixed \(t\), which is a mean over
+\(h_{t,1}, h_{t,2}, \ldots, h_{t,d}\).
+
+%----------------------------------------------------------------------
+\section{One Word, Four Features}
+%----------------------------------------------------------------------
+
+Take the word ``cold'' inside the sentence ``the coffee was cold,'' and
+suppose the vector that reaches layer norm is
+\[
+  \mathbf{h} = [2,\; 4,\; 4,\; 6].
+\]
+Those four numbers are four learned features of that one word.
+
+\[
+  \mu = \frac{2+4+4+6}{4} = 4,
+  \qquad
+  \sigma
+  =
+  \sqrt{\frac{(-2)^2+0^2+0^2+2^2}{4}}
+  =
+  \sqrt{2}.
+\]
+\[
+  \frac{\mathbf{h}-\mu}{\sigma}
+  =
+  [-\sqrt{2},\; 0,\; 0,\; \sqrt{2}]
+  \approx
+  [-1.41,\; 0,\; 0,\; 1.41].
+\]
+``Coffee'' is normalized from its own four numbers. The other words in the
+sentence do not enter, and neither do the other sentences in the batch.
+
+%----------------------------------------------------------------------
+\section{Baby Example: Two Quizzes}
+%----------------------------------------------------------------------
+
+The same rule is easier to see with two students and two scores. Spelling
+is one feature; math is the other.
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Student & Spelling & Math \\
+\midrule
+A & 0 & 2 \\
+B & 2 & 4 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Batch norm}
+
+Look down one column at a time, across the class.
+
+Spelling scores are \(0\) and \(2\). Their average is \(1\), and each score
+sits exactly \(1\) away from that average:
+\[
+  \text{A: }\frac{0-1}{1} = -1,
+  \qquad
+  \text{B: }\frac{2-1}{1} = 1.
+\]
+Math scores are \(2\) and \(4\). Average \(3\), same spread:
+\[
+  \text{A: }\frac{2-3}{1} = -1,
+  \qquad
+  \text{B: }\frac{4-3}{1} = 1.
+\]
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Student & Spelling & Math \\
+\midrule
+A & \(-1\) & \(-1\) \\
+B & \(1\) & \(1\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A's spelling grade moved because of B's spelling grade. A different
+classmate in the batch would change A's curved spelling score, even if A
+wrote the same answers.
+
+\subsection{Layer norm}
+
+Look across one row at a time, using only that student's own scores.
+
+Student A has \(0\) and \(2\). Average \(1\), spread \(1\):
+\[
+  \frac{0-1}{1} = -1,
+  \qquad
+  \frac{2-1}{1} = 1.
+\]
+Student B has \(2\) and \(4\). Average \(3\), spread \(1\):
+\[
+  \frac{2-3}{1} = -1,
+  \qquad
+  \frac{4-3}{1} = 1.
+\]
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Student & Spelling & Math \\
+\midrule
+A & \(-1\) & \(1\) \\
+B & \(-1\) & \(1\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Each student is compared only with themselves. B could be absent and A's
+result would stay \(-1\) and \(1\).
+
+%----------------------------------------------------------------------
+\section{The Same Numbers as Word Vectors}
+%----------------------------------------------------------------------
+
+Carry the quiz table into a transformer. Each word is one student. The two
+numbers inside its vector are its two quiz scores. A batch of two one-word
+sentences arrives at the normalization:
+
+\begin{center}
+\begin{tabular}{@{}llc@{}}
+\toprule
+Sentence & Word & Vector \\
+\midrule
+1 & coffee & \([0,\; 2]\) \\
+2 & tea & \([2,\; 4]\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The two entries are two learned features of the word, for instance ``how
+drink-like'' and ``how hot or cold.''
+
+\subsection{Layer norm, the one a transformer uses}
+
+Each word is rescaled using only its own two numbers.
+
+\textbf{coffee} \(= [0,\; 2]\). Average \((0+2)/2 = 1\), spread \(1\):
+\[
+  \frac{0-1}{1} = -1,
+  \qquad
+  \frac{2-1}{1} = 1,
+  \qquad
+  \text{coffee becomes } [-1,\; 1].
+\]
+
+\textbf{tea} \(= [2,\; 4]\). Average \((2+4)/2 = 3\), spread \(1\):
+\[
+  \frac{2-3}{1} = -1,
+  \qquad
+  \frac{4-3}{1} = 1,
+  \qquad
+  \text{tea becomes } [-1,\; 1].
+\]
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Word & Before & After layer norm \\
+\midrule
+coffee & \([0,\; 2]\) & \([-1,\; 1]\) \\
+tea & \([2,\; 4]\) & \([-1,\; 1]\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+``Tea'' never enters the arithmetic for ``coffee.'' In a longer sentence
+such as ``the coffee was cold,'' the same thing happens separately for
+every word. Inside the transformer block, this is the table that runs:
+one word vector in, one rescaled word vector out.
+
+\subsection{Batch norm on these same vectors}
+
+Batch norm takes one feature column down the batch.
+
+First column, the first number of each word: \(0\) and \(2\). Average \(1\),
+spread \(1\).
+\[
+  \text{coffee: }\frac{0-1}{1} = -1,
+  \qquad
+  \text{tea: }\frac{2-1}{1} = 1.
+\]
+Second column: \(2\) and \(4\). Average \(3\), spread \(1\).
+\[
+  \text{coffee: }\frac{2-3}{1} = -1,
+  \qquad
+  \text{tea: }\frac{4-3}{1} = 1.
+\]
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Word & Before & After batch norm \\
+\midrule
+coffee & \([0,\; 2]\) & \([-1,\; -1]\) \\
+tea & \([2,\; 4]\) & \([1,\; 1]\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Here ``coffee'' changes because ``tea'' is sitting in the same batch.
+
+%----------------------------------------------------------------------
+\section{Where Batch Normalization Is Used}
+%----------------------------------------------------------------------
+
+Batch normalization is the tool from Lecture~5, inside image models, and in
+particular inside a ResNet block \cite{he2016deep}. The order in one block is
+\begin{enumerate}[leftmargin=*, nosep]
+  \item \(3\times 3\) convolution, batch norm, ReLU;
+  \item \(3\times 3\) convolution, batch norm;
+  \item add the residual, then ReLU.
+\end{enumerate}
+The network also opens with a large \(7\times 7\) convolution, then batch
+norm, then max pooling, and then a stack of those blocks.
+
+On an image, one activation is a volume: a batch of pictures, each with
+height, width, and channels. Batch norm keeps a separate mean and spread
+for each channel, and it computes them from every picture in the batch and
+every pixel in that channel. A ``red-edge'' channel is curved using all the
+red-edge responses in the batch, the same way the spelling quiz was curved
+using every student's spelling score.
+
+At test time there may be no batch. The model then uses a running average
+of the means and spreads it collected during training.
+
+The quiz table already shows the uncomfortable part: one example's output
+depends on the other examples in the batch. Lecture~5 records that
+dependence, and later models put layer norm in the corresponding slot. In
+the transformer, that slot is the per-word calculation above.
+
+%----------------------------------------------------------------------
+\section{The Position-Wise Feed-Forward Network}
+\label{sec:ffn}
+%----------------------------------------------------------------------
+
+This follows the course lecture's account of the transformer's ingredients
+(\href{https://r-three.github.io/deep-learning-lecture-notes/lectures/08-transformers-part-1.html}{Lecture~8}).
+Inside a block, self-attention is the part that lets words look at each
+other. The feed-forward piece does a different job: it rewrites each word
+on its own.
+
+The original transformer uses one hidden layer and a ReLU
+\cite{vaswani2017attention},
+\[
+  \mathbf{h}_t
+  =
+  \mathbf{W}_2\,
+  \phi(\mathbf{W}_1 \mathbf{x}_t + \mathbf{b}_1)
+  +
+  \mathbf{b}_2.
+\]
+\(\mathbf{W}_1\) maps the \(d\)-dimensional word up to a wider hidden
+vector, \(\phi\) is applied entry by entry, and \(\mathbf{W}_2\) maps back
+to \(d\) dimensions. The same \(\mathbf{W}_1\), \(\mathbf{W}_2\),
+\(\mathbf{b}_1\), and \(\mathbf{b}_2\) are used at every position, the same
+sharing pattern as \(\boldsymbol{\gamma}\) and \(\boldsymbol{\beta}\): \(T\)
+applications, one shared set of weights.
+
+\subsection{Why it is pointwise}
+
+``Pointwise'' means the function looks at one position and ignores the
+others. On the sentence ``coffee cold,'' the network reads
+\([0,\; 2]\) by itself and \([2,\; 4]\) by itself. Take
+\[
+  \mathbf{W}_1
+  =
+  \begin{pmatrix} 1 & -1 \\ 0 & 1 \end{pmatrix},
+  \qquad
+  \mathbf{b}_1=\mathbf{0},
+  \qquad
+  \phi=\operatorname{ReLU},
+  \qquad
+  \mathbf{W}_2=\mathbf{I},
+  \qquad
+  \mathbf{b}_2=\mathbf{0}.
+\]
+Coffee \([0,\; 2]\) is sent to \([-2,\; 2]\), and ReLU zeroes the negative
+entry, leaving \([0,\; 2]\). Cold \([2,\; 4]\) is sent to \([-2,\; 4]\),
+and ReLU leaves \([0,\; 4]\). Cold's output was computed without ever
+reading coffee's numbers. Swap the two words and the two outputs swap with
+them. A third word would be passed through these same two matrices; the
+parameter count does not grow with \(T\).
+
+That is the useful split inside the block. Attention is where ``cold'' can
+pick up information from ``coffee.'' The feed-forward network is where each
+word, already mixed, is rewritten by a small MLP. Layer norm is the same
+kind of per-word step: shuffle the input words and the outputs shuffle in
+the same order.
+
+\subsection{What is different from a traditional MLP}
+
+The recipe inside one position is an ordinary MLP: linear layer,
+nonlinearity, linear layer. The difference is what counts as the input.
+
+A traditional MLP for the whole sentence flattens the rows into one long
+vector. ``Coffee cold'' becomes \([0,\; 2,\; 2,\; 4]\), and one weight
+matrix connects every entry of that vector to every output. A single weight
+can carry coffee into cold's output. With the weight \(5\) on coffee's
+second feature, that feature contributes \(5\cdot 2 = 10\) to whichever
+output the weight feeds, including an output that is supposed to describe
+cold. The matrix also has shape tied to \(T\): a length-\(2\) sentence and
+a length-\(3\) sentence are different input sizes, so they do not share one
+matrix.
+
+The position-wise network has no such cross-word weight. Each application
+sees a vector of length \(d\) only, and the matrices stay \(d\) by \(d\)
+(or \(d\) by the hidden width) no matter how long the sentence is.
+
+%----------------------------------------------------------------------
+\section{Pre-Layer Norm and Post-Layer Norm}
+\label{sec:pre-post}
+%----------------------------------------------------------------------
+
+This is the first of the block modifications in the same course lecture.
+The original transformer puts layer norm \emph{after} the residual add.
+That arrangement is now called \textbf{post-layer norm}. The alternative,
+\textbf{pre-layer norm}, puts layer norm \emph{before} the attention or the
+feed-forward network, and the residual add then wraps around both.
+
+Post-layer norm, the 2017 block \cite{vaswani2017attention}:
+\begin{align*}
+  \mathbf{h}
+  &=
+  \operatorname{LN}\bigl(\mathbf{x} + \operatorname{MHSA}(\mathbf{x})\bigr),
+  \\
+  \mathbf{y}
+  &=
+  \operatorname{LN}\bigl(\mathbf{h} + \operatorname{FFN}(\mathbf{h})\bigr).
+\end{align*}
+The skip connection is added first, and layer norm sees the sum. The copy
+of \(\mathbf{x}\) that skipped the attention has to pass through the layer
+norm before it leaves the block.
+
+Pre-layer norm:
+\begin{align*}
+  \mathbf{h}
+  &=
+  \mathbf{x} + \operatorname{MHSA}\bigl(\operatorname{LN}(\mathbf{x})\bigr),
+  \\
+  \mathbf{y}
+  &=
+  \mathbf{h} + \operatorname{FFN}\bigl(\operatorname{LN}(\mathbf{h})\bigr).
+\end{align*}
+Layer norm is applied to the input of the attention, or of the feed-forward
+network. The skip adds the original vector after that update has been
+computed. Stacked from the embeddings to the output, those skips form a
+path with nothing on it: no attention, no feed-forward network, and no
+layer norm. The course lecture calls this the uninterrupted residual
+stream.
+
+The add is legal with no extra projection because the block is built so
+that every piece preserves the width \(d_{\text{model}}\): multi-head
+attention, layer norm, and the feed-forward network all map
+\(\mathbb{R}^{d}\) to \(\mathbb{R}^{d}\).
+
+\subsection{What the placement changes}
+
+Along the pre-layer-norm skip, the gradient from the output back to the
+input is the identity on that path. Deep stacks can still send a learning
+signal to early blocks when the attention and the feed-forward branch are
+difficult to differentiate. The course lecture is careful about the
+strength of that claim: which placement trains better depends on
+initialization, the optimizer, and the other hyperparameters, so it is not
+a settled comparison. Pre-layer norm is the more common choice in current
+models. A transformer built with the original post-layer-norm block still
+works.
+
+The other reading is about what the network is doing to the sentence. With
+pre-layer norm, the running vectors start as the word embeddings. Each
+block computes an update from a normalized copy and adds that update back.
+The representation is revised in place, rather than being replaced by a
+freshly normalized sum at every block.
+
+%----------------------------------------------------------------------
+\section{Efficient and Sub-Quadratic Attention}
+\label{sec:subquadratic}
+%----------------------------------------------------------------------
+
+This follows the course lecture's section on efficient self-attention.
+Full self-attention scores every word against every word. A sentence of
+length \(T\) therefore builds a \(T\times T\) score matrix: \(T^2\) dot
+products. For ``the coffee was cold,'' \(T=4\), that is \(16\) dots. For a
+\(1000\)-word document it is \(1000^2 = 10^6\) dots in every head of every
+block.
+
+The lecture gives two reasons this quadratic bill is often left alone, and
+then the simple change that actually reduces it: local self-attention.
+
+\subsection{The feed-forward network is often the larger bill}
+
+Count multiplies in one block, with width \(d\) and feed-forward width
+\(d_{\mathrm{ff}}\). The feed-forward network applies two matrices at each
+of the \(T\) positions, about \(2\,T\,d\,d_{\mathrm{ff}}\) multiplies.
+Score-and-average attention, with the head widths adding up to \(d\), is
+about \(2\,T^2 d\) multiplies.
+
+Take the lecture's regime, \(d=256\) and \(d_{\mathrm{ff}}=4d=1024\):
+\begin{align*}
+  \text{feed-forward}
+  &\approx 2\cdot T\cdot 256\cdot 1024 = 524288\,T,\\
+  \text{attention}
+  &\approx 2\cdot T^2\cdot 256 = 512\,T^2.
+\end{align*}
+At \(T=256\), the feed-forward count is four times the attention count.
+The two meet near \(T\approx 1024\). Past that, attention is the larger
+bill. The lecture's statement that the quadratic term is not the main cost
+for modest lengths, roughly \(T<1000\), is this comparison. These counts
+are the big matrix products only; they are not a full account of hardware
+time.
+
+\subsection{Flash Attention stores less, and still scores every pair}
+
+The other quadratic cost is memory. Writing down every score, for \(L\)
+blocks and \(H\) heads, is \(L\cdot H\cdot T\cdot T\) numbers. On a GPU the
+expensive part is moving those numbers between the large memory and the
+small on-chip memory. \textbf{Flash Attention} still computes every
+query--key dot product, block by block, and keeps a running softmax so the
+full \(T\times T\) matrix is never stored \cite{dao2022flashattention}. The
+arithmetic stays quadratic. The stored working set does not.
+
+One query, four keys, scores \([0,\;\ln 2,\;0,\;\ln 2]\). The full softmax
+uses \(\mathrm{e}^{0}=1\) and \(\mathrm{e}^{\ln 2}=2\), so the weights are
+\[
+  \frac{[1,\;2,\;1,\;2]}{6}
+  =
+  \Bigl[\tfrac{1}{6},\;\tfrac{2}{6},\;\tfrac{1}{6},\;\tfrac{2}{6}\Bigr].
+\]
+The running version sees the scores in two blocks of two and only remembers
+a running maximum \(m\) and a running sum \(\ell\) of
+\(\mathrm{e}^{s-m}\).
+
+Block \([0,\;\ln 2]\): \(m=\ln 2\), and
+\(\ell=\mathrm{e}^{0-\ln 2}+\mathrm{e}^{0}=\tfrac{1}{2}+1=\tfrac{3}{2}\).
+The second block is the same, so the new maximum is still \(\ln 2\) and the
+sums add, \(\ell=\tfrac{3}{2}+\tfrac{3}{2}=3\). A weight is
+\(\mathrm{e}^{s-m}/\ell\): the score \(0\) gives
+\((\tfrac{1}{2})/3=\tfrac{1}{6}\), and the score \(\ln 2\) gives
+\(1/3=\tfrac{2}{6}\). Same weights as the full softmax. The four scores
+never had to sit in memory together. If the second block had contained a
+larger score, the old \(\ell\) would be multiplied by
+\(\mathrm{e}^{m_{\mathrm{old}}-m_{\mathrm{new}}}\) before the new block was
+added, which is what keeps the result exact.
+
+\subsection{Local self-attention}
+\label{sec:local}
+
+When the document really is long, the lecture's simplest cut is
+\textbf{local self-attention}: position \(t\) scores only a window of width
+\(K\) around itself. The score matrix is a band around the diagonal. The
+dot-product count drops from \(T^2\) to about \(K T\). For
+\(T=1000\) and \(K=64\) that is \(64000\) dots in place of \(10^6\).
+
+\paragraph{Baby sentence.}
+Four words, values \(\mathbf{v}=[1,\;3,\;5,\;7]\) for ``the coffee was
+cold,'' and a window of radius \(1\): each word may look at itself and its
+immediate neighbors. Inside this first pass every allowed score is \(0\),
+so the softmax is uniform on the window. The band is
+\begin{center}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+query \(\backslash\) key & the & coffee & was & cold \\
+\midrule
+the    & \(1\) & \(1\) & \(0\) & \(0\) \\
+coffee & \(1\) & \(1\) & \(1\) & \(0\) \\
+was    & \(0\) & \(1\) & \(1\) & \(1\) \\
+cold   & \(0\) & \(0\) & \(1\) & \(1\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+Ten scores are computed, rather than sixteen. The outputs are averages of
+the values inside each row:
+\begin{align*}
+  \text{the}    &= \tfrac{1+3}{2} = 2,\\
+  \text{coffee} &= \tfrac{1+3+5}{3} = 3,\\
+  \text{was}    &= \tfrac{3+5+7}{3} = 5,\\
+  \text{cold}   &= \tfrac{5+7}{2} = 6.
+\end{align*}
+``Cold'' reads ``was'' and ``cold'' only. The value \(1\) on ``the'' is
+absent from \(6\).
+
+\paragraph{The weights inside the window still come from the words.}
+Replace ``the'''s two scores by \([\ln 2,\;0]\). The weights become
+\(\tfrac{2}{3}\) and \(\tfrac{1}{3}\), and the output becomes
+\[
+  \tfrac{2}{3}\cdot 1 + \tfrac{1}{3}\cdot 3 = \tfrac{5}{3},
+\]
+instead of the flat average \(2\). A convolution would apply one fixed
+kernel at every window, with no query and no key. Local attention is a
+softmax over dot products, restricted to the band. The band is what it
+shares with a convolution; the content-dependent weights are the
+difference.
+
+\paragraph{Path length.}
+Global attention gives every word a direct look at every other word, so
+``the'' can affect ``cold'' in one layer. In the band above, ``the''
+affects ``coffee'' in one layer, ``was'' only on the next layer (when
+``was'' reads ``coffee'''s new vector), and ``cold'' on the layer after
+that. The number of layers grows with the distance, as it does in a
+convolutional stack. A common repair, stated in the lecture, is to keep
+most blocks local and insert an occasional block with the full \(T\times T\)
+matrix, so a long jump is available without paying for it at every layer.
+
+%----------------------------------------------------------------------
+\section{Grouped-Query Attention}
+\label{sec:gqa}
+%----------------------------------------------------------------------
+
+Multi-head attention gives every head its own queries, keys, and values.
+The course lecture then describes two reductions. \textbf{Multi-query
+attention} keeps a separate query per head and shares one key projection
+and one value projection across all heads \cite{shazeer2019fast}.
+\textbf{Grouped-query attention} sits between that and ordinary multi-head
+attention: \(G\) groups of keys and values, with \(G\) dividing the number
+of heads \(H\), and still one query per head \cite{ainslie2023gqa}.
+\(G=1\) is multi-query attention. \(G=H\) is ordinary multi-head attention.
+
+The saving the lecture emphasizes is memory traffic, especially when past
+keys and values are kept for word-by-word generation (Lecture~9). Fewer
+distinct key and value vectors means fewer vectors to store and to move.
+Sharing every head's keys, the \(G=1\) end, is a strong constraint and can
+hurt quality slightly. A middle \(G\) keeps most of the saving and less of
+that loss.
+
+\subsection{One starting point for all three}
+
+Two words, ``coffee'' at position \(1\) and ``cold'' at position \(2\).
+Four heads, and every query at position \(1\) is \(q=1\). Keys and values
+are scalars, so \(\sqrt{d_k}=1\) and a score is the product \(q\,k\).
+Multi-head attention gives each head a private memory. That memory is the
+starting point. Grouped-query and multi-query attention keep these same
+queries and only tie some of the memories together.
+
+\begin{center}
+\small
+\begin{tabular}{@{}cccc@{}}
+\toprule
+Head & keys (coffee, cold) & values (coffee, cold) & name \\
+\midrule
+1 & \([\ln 2,\; 0]\) & \([3,\; 6]\) & \(M_1\) \\
+2 & \([0,\; \ln 2]\) & \([0,\; 9]\) & \(M_2\) \\
+3 & \([\ln 2,\; 0]\) & \([6,\; 3]\) & \(M_3\) \\
+4 & \([0,\; \ln 2]\) & \([9,\; 0]\) & \(M_4\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Head~1 against \(M_1\): scores \([1\cdot\ln 2,\; 1\cdot 0]=[\ln 2,\; 0]\),
+weights \(\bigl(\tfrac{2}{3},\,\tfrac{1}{3}\bigr)\), output
+\[
+  \tfrac{2}{3}\cdot 3 + \tfrac{1}{3}\cdot 6 = 4.
+\]
+Head~2 against its own \(M_2\): scores \([0,\;\ln 2]\), weights
+\(\bigl(\tfrac{1}{3},\,\tfrac{2}{3}\bigr)\), output
+\[
+  \tfrac{1}{3}\cdot 0 + \tfrac{2}{3}\cdot 9 = 6.
+\]
+Head~3 against \(M_3\) has the same keys as head~1, so the same weights
+\(\bigl(\tfrac{2}{3},\,\tfrac{1}{3}\bigr)\), and different values:
+\(\tfrac{2}{3}\cdot 6 + \tfrac{1}{3}\cdot 3 = 5\).
+Head~4 against \(M_4\) has the same keys as head~2, so the same weights
+\(\bigl(\tfrac{1}{3},\,\tfrac{2}{3}\bigr)\), and output
+\(\tfrac{1}{3}\cdot 9 + \tfrac{2}{3}\cdot 0 = 3\).
+Four private memories, four outputs: \(4,\;6,\;5,\;3\).
+
+\subsection{What each method is allowed to read}
+
+The queries stay \(q=1\) on every head. The methods differ only in which
+memory a head may use.
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Multi-head} (\(G=H=4\)): head \(h\) reads \(M_h\).
+  \item \textbf{Grouped-query} (\(G=2\)): heads \(1\) and \(2\) both read
+        \(M_1\); heads \(3\) and \(4\) both read \(M_3\). The memories
+        \(M_2\) and \(M_4\) are dropped.
+  \item \textbf{Multi-query} (\(G=1\)): all four heads read \(M_1\).
+        The memories \(M_2\), \(M_3\), and \(M_4\) are dropped.
+\end{itemize}
+Head~2 under grouped-query attention therefore recomputes head~1's
+arithmetic and outputs \(4\), where multi-head attention had given it
+\(6\). Head~4 recomputes head~3's arithmetic and outputs \(5\), where
+multi-head attention had given it \(3\). Multi-query attention sends heads
+\(3\) and \(4\) to \(M_1\) as well, so they output \(4\) too.
+
+\begin{center}
+\small
+\begin{tabular}{@{}clll@{}}
+\toprule
+Head & Multi-head & Grouped-query & Multi-query \\
+\midrule
+1 & \(M_1\to 4\) & \(M_1\to 4\) & \(M_1\to 4\) \\
+2 & \(M_2\to 6\) & \(M_1\to 4\) & \(M_1\to 4\) \\
+3 & \(M_3\to 5\) & \(M_3\to 5\) & \(M_1\to 4\) \\
+4 & \(M_4\to 3\) & \(M_3\to 5\) & \(M_1\to 4\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Reading across a row is the contrast. Head~1 is untouched, because every
+method keeps \(M_1\). Head~2 changes as soon as a method makes it share
+with head~1. Heads \(3\) and \(4\) still have their own group under
+grouped-query attention, and both collapse onto \(M_1\) only under
+multi-query attention. The lecture's remark that sharing every key and
+value is a strong assumption is this last column: one memory, and every
+head emits \(4\).
+
+For \(T=2\), the number of stored key vectors, and likewise value vectors,
+is \(H\) or \(G\) per position:
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+ & key vectors & value vectors \\
+\midrule
+multi-head, \(G=4\) & \(4\cdot 2=8\) & \(8\) \\
+grouped-query, \(G=2\) & \(2\cdot 2=4\) & \(4\) \\
+multi-query, \(G=1\) & \(1\cdot 2=2\) & \(2\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+The query side does not shrink. Four heads still mean four queries at each
+position, in all three columns.
+
+%----------------------------------------------------------------------
+\section{Encoder-Only Transformers}
+\label{sec:encoder-only}
+%----------------------------------------------------------------------
+
+This follows the course lecture's encoder-only section. The original
+transformer is an encoder--decoder. The simplest use of the block keeps
+only the encoder half: the same layer, repeated \(L\) times. A length-\(T\)
+sequence goes in and a length-\(T\) sequence comes out, one vector per input
+position. It cannot emit a new sentence of a different length. The lecture
+uses that one-to-one shape for three supervised tasks.
+
+\subsection{Three supervised uses}
+
+\textbf{Sequence classification.} Append a \textbf{CLS} position, as in
+``the coffee was cold \texttt{[CLS]}.'' Run the stack. The vector at
+\texttt{[CLS]} is a summary of the whole sentence, the role the final
+hidden state played for an RNN classifier. A linear classifier reads only
+that vector. Suppose it produces two scores, complaint \(=2\) and other
+\(=0\). Softmax turns them into probabilities proportional to
+\(\mathrm{e}^{2}\) and \(\mathrm{e}^{0}=1\):
+\[
+  P(\text{complaint})
+  =
+  \frac{\mathrm{e}^{2}}{\mathrm{e}^{2}+1},
+  \qquad
+  P(\text{other})
+  =
+  \frac{1}{\mathrm{e}^{2}+1}.
+\]
+The training target is one of those two classes. For a review that a person
+marked as a complaint, the target is complaint. That mark is a human label,
+so this training step is supervised.
+
+\textbf{Sequence labeling.} One label per position. On the same sentence a
+person, or a tagged corpus, can supply
+\[
+  \text{the/DET},\ 
+  \text{coffee/NOUN},\ 
+  \text{was/VERB},\ 
+  \text{cold/ADJ}.
+\]
+Each output vector is classified on its own. The loss is a sum of
+per-position cross-entropies against those tags. Supervised again: the tags
+are the annotation.
+
+\textbf{Span extraction.} The input is a question followed by a context
+paragraph, and the answer is a stretch of that paragraph. Each output
+position is classified as the start of the answer, the end, or neither. The
+lecture's picture is ``when was so-and-so born?'' in front of a sentence
+that contains ``1953'': the target marks the start and the end of
+``1953.'' Nothing new is written; a region of the input is named. The start
+and end marks are human labels.
+
+\subsection{Application intuition: when an encoder is enough}
+
+The encoder-only stack is a bidirectional reader. Every output position
+already saw every input position, so it is a good fit when the job is to
+\emph{understand} a fixed text and attach a decision to it---not when the
+job is to \emph{write} a longer answer that was never in the input.
+
+\paragraph{One label for the whole document.}
+News topic classification is the running picture. A headline and a short
+blurb---``Ford to Offer Sirius on More Vehicles'' plus the body---should
+map to Business, not Sports. That is exactly sequence classification with
+a \texttt{[CLS]} (or pooled) vector and a small linear head with four
+logits. Sentiment on a review, spam versus ham on an email, and
+``is this medical abstract about oncology?'' are the same shape: one
+document in, one class out. The homework's AG~News fine-tune of TinyBERT
+or MobileBERT is this application in miniature.
+
+\paragraph{One label per word.}
+Named-entity recognition---mark which tokens are people, places, or
+organizations---is sequence labeling. So is part-of-speech tagging. The
+encoder still runs once over the sentence; the head is applied at every
+position. Intuition: the word ``Washington'' needs both left and right
+context (``\ldots\ visited Washington last\ldots'' versus ``Washington
+signed\ldots'') before the tag is reliable, which is why a bidirectional
+encoder helps.
+
+\paragraph{A span inside the input, not a new sentence.}
+Extractive question answering---``when was so-and-so born?'' with the
+answer already sitting in the paragraph as ``1953''---is span extraction.
+The model does not invent the year; it points at the start and end tokens.
+Highlighting the relevant sentence in a contract, or finding the price in
+a product page, is the same idea. Generation would be needed only if the
+answer had to be paraphrased or lengthened beyond a contiguous span.
+
+\paragraph{Fine-tuning versus a frozen encoder.}
+Two practical recipes use the same encoder-only idea.
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Fine-tune the encoder and the head} (Part~1 of the
+        homework). Start from a pretrained TinyBERT or MobileBERT, attach
+        a four-way classification head, and update almost all weights on
+        AG~News. The body adapts to news topics.
+  \item \textbf{Freeze the encoder; train only a linear head} (Part~2).
+        A sentence transformer turns each article into a fixed vector;
+        logistic regression learns \(W\mathbf{e}+\mathbf{b}\) for the four
+        topics. The body never moves. This is cheaper and works when the
+        frozen embeddings already separate the classes; a raw encoder that
+        was never trained as a sentence embedder often needs the fine-tune
+        path instead.
+\end{itemize}
+
+\paragraph{What encoder-only is not for.}
+Chat replies, translation into a differently ordered language, and
+summaries that must invent new wording are length-changing generation
+problems. Those need a decoder (or an encoder--decoder), which Lecture~9
+takes up. If the answer must be a string that is not a contiguous piece of
+the input, an encoder-only classifier or span head is the wrong tool.
+
+\subsection{What the encoder is trained to predict}
+
+The block does not choose the loss. The lecture trains this same encoder in
+two regimes, and only one of them asks a person for labels.
+
+The three tasks above are supervised. Someone has decided the class of the
+sentence, the tag of each word, or the start and end of the answer. The
+encoder's \(T\) vectors are the features, and a classifier is trained
+against those decisions.
+
+The other regime is the lecture's pre-training, developed fully with BERT
+in the next part of the lecture \cite{devlin2019bert}. Mask a word that is
+already in the sentence and ask the encoder to name it. ``the coffee was
+\texttt{[MASK]}'' has target \texttt{cold}, copied out of the original
+sentence before the mask was applied. The output at the mask position is a
+classifier over the vocabulary, the same kind of cross-entropy as the
+part-of-speech classifier, with one class per word type. The target was not
+written by an annotator. The lecture calls the source unlabeled text,
+meaning nobody was paid to label it, and calls this first stage
+pre-training. The supervised tasks above are the fine-tuning stage: start
+from those parameters, attach the complaint classifier or the tag
+classifier, and continue training on the smaller labeled set.
+
+So an encoder-only transformer is supervised when the target is a human
+decision about the sentence, and the pre-training target is a word the
+sentence already contained.
+
+%----------------------------------------------------------------------
+\begin{thebibliography}{9}
+\bibitem{ba2016layer}
+J.~L. Ba, J.~R. Kiros, and G.~E. Hinton.
+Layer Normalization.
+\emph{arXiv:1607.06450}, 2016.
+
+\bibitem{ioffe2015batch}
+S.~Ioffe and C.~Szegedy.
+Batch Normalization: Accelerating Deep Network Training by Reducing
+Internal Covariate Shift.
+\emph{ICML}, 2015.
+
+\bibitem{he2016deep}
+K.~He, X.~Zhang, S.~Ren, and J.~Sun.
+Deep Residual Learning for Image Recognition.
+\emph{CVPR}, 2016.
+
+\bibitem{vaswani2017attention}
+A.~Vaswani, N.~Shazeer, N.~Parmar, J.~Uszkoreit, L.~Jones, A.~N. Gomez,
+\L.~Kaiser, and I.~Polosukhin.
+Attention Is All You Need.
+\emph{NeurIPS}, 2017.
+
+\bibitem{dao2022flashattention}
+T.~Dao, D.~Y. Fu, S.~Ermon, A.~Rudra, and C.~R\'{e}.
+FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness.
+\emph{NeurIPS}, 2022.
+
+\bibitem{shazeer2019fast}
+N.~Shazeer.
+Fast Transformer Decoding: One Write-Head is All You Need.
+\emph{arXiv:1911.02150}, 2019.
+
+\bibitem{ainslie2023gqa}
+J.~Ainslie, J.~Lee-Thorp, M.~de Jong, Y.~Zemlyanskiy, F.~Lebr\'{o}n,
+and S.~Sanghai.
+GQA: Training Generalized Multi-Query Transformer Models from Multi-Head
+Checkpoints.
+\emph{EMNLP}, 2023.
+
+\bibitem{devlin2019bert}
+J.~Devlin, M.-W. Chang, K.~Lee, and K.~Toutanova.
+BERT: Pre-training of Deep Bidirectional Transformers for Language
+Understanding.
+\emph{NAACL}, 2019.
+\end{thebibliography}
+
+\end{document}

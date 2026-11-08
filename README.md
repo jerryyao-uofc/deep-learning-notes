@@ -11,7 +11,7 @@ Formation of these notes borrows heavily from the [original course website (CSC2
 | # | Title | Status |
 |---|-------|--------|
 | 07 | [Attention & Self-Attention](./notes/07-attention/) | Published |
-| 08 | Transformers | Upcoming |
+| 08 | [Transformers, Part 1](./notes/08-transformers-part-1/) | Published |
 | 06 | [Sequences & RNNs](./notes/06-sequences-rnns/) | Published |
 | 05 | CNNs & Residuals | Upcoming |
 | 04 | Gradient Methods | Upcoming |
@@ -54,6 +54,22 @@ pdflatex lecture-06-sequences-rnns.tex   # optional PDF
 pandoc lecture-07-attention.tex -f latex -t html5 --mathjax --toc --toc-depth=2 -o notes/07-attention/body.html
 # then regenerate notes/07-attention/index.html with the site wrapper (or re-run the project build script)
 pdflatex lecture-07-attention.tex   # optional PDF
+```
+
+## Lecture 08 — Transformers, Part 1
+
+- Reading page: [`notes/08-transformers-part-1/`](./notes/08-transformers-part-1/)
+- LaTeX source: [`notes/08-transformers-part-1/lecture-08-transformers-part-1.tex`](./notes/08-transformers-part-1/lecture-08-transformers-part-1.tex)
+- Root copy (for local compile): [`lecture-08-transformers-part-1.tex`](./lecture-08-transformers-part-1.tex)
+
+**Topics so far:** layer normalization next to batch normalization, the position-wise feed-forward network, pre- versus post-layer norm, efficient attention (Flash Attention and a worked local-attention band), grouped-query attention, and the encoder-only transformer (classification / labeling / span extraction, application intuition, fine-tune vs frozen embeddings, masked-word pre-training). Removing biases, gated FFNs, and the full BERT write-up are still to come.
+
+### Rebuild the note page from LaTeX
+
+```bash
+pandoc lecture-08-transformers-part-1.tex -s -f latex -t html5 --mathjax --toc --toc-depth=2 -o notes/08-transformers-part-1/body.html
+# then regenerate notes/08-transformers-part-1/index.html with the site wrapper
+pdflatex lecture-08-transformers-part-1.tex   # optional PDF
 ```
 
 ## GitHub Pages
